@@ -118,6 +118,8 @@ io.on('connection', (socket) => {
   forwardWithSlot('adjust_sens');
   forwardWithSlot('change_preset');
   forwardWithSlot('request_center_reset');
+  forwardWithSlot('toggle_test_targets');
+  forwardWithSlot('set_angle_span');
 
   socket.on('game_started', (data) => socket.broadcast.emit('game_started', data));
 
