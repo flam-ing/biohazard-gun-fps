@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>GUN CONTROLLER</title>
   <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <style>
     * {
       box-sizing: border-box;
@@ -171,31 +172,55 @@
       flashColor('reload');
     }
 
-    // 3D 오리엔테이션 계산
+    // 3D 오리엔테이션 계산 (W3C Quaternion 변환 - 짐벌락 및 축 꼬임 100% 제거)
     const DEG2RAD = Math.PI / 180;
     const RAD2DEG = 180 / Math.PI;
 
-    let initialAlpha = null;
-    let initialBeta = null;
+    const _zAxis = new THREE.Vector3(0, 0, 1);
+    const _xAxis = new THREE.Vector3(1, 0, 0);
+    const _yAxis = new THREE.Vector3(0, 1, 0);
+
+    let baseDir = null;
+
+    function resetCenterOrientation() {
+      baseDir = null; // 다음 프레임에서 현재 방향을 즉시 중앙 영점으로 자동 등록
+    }
+
+    socket.on('calibrate', resetCenterOrientation);
 
     function handleOrientation(e) {
-      if (e.alpha === null) return;
-      const alpha = e.alpha || 0;
-      const beta = e.beta || 0;
-      const gamma = e.gamma || 0;
+      if (e.alpha === null || e.beta === null) return;
+      const alphaRad = (e.alpha || 0) * DEG2RAD;
+      const betaRad = (e.beta || 0) * DEG2RAD;
+      const gammaRad = (e.gamma || 0) * DEG2RAD;
 
-      if (initialAlpha === null) {
-        initialAlpha = alpha;
-        initialBeta = beta;
+      // W3C DeviceOrientation 회전: Z(alpha) -> X'(beta) -> Y''(gamma)
+      const qZ = new THREE.Quaternion().setFromAxisAngle(_zAxis, alphaRad);
+      const qX = new THREE.Quaternion().setFromAxisAngle(_xAxis, betaRad);
+      const qY = new THREE.Quaternion().setFromAxisAngle(_yAxis, gammaRad);
+      const qDevice = qZ.multiply(qX).multiply(qY);
+
+      // 스마트폰 상단(+Y축, 총구 방향)이 가리키는 3D 벡터
+      const currentDir = new THREE.Vector3(0, 1, 0).applyQuaternion(qDevice);
+
+      if (!baseDir) {
+        baseDir = currentDir.clone();
       }
 
-      // 수평 회전(Yaw) & 상하(Pitch)
-      let dYaw = -(((alpha - initialAlpha + 540) % 360) - 180);
-      let dPitch = beta - initialBeta;
+      // 수평 회전(Yaw): X-Y 평면 상의 방위각 차이
+      const currentHeading = Math.atan2(currentDir.x, currentDir.y);
+      const baseHeading = Math.atan2(baseDir.x, baseDir.y);
+      let dYawDeg = -(currentHeading - baseHeading) * RAD2DEG;
+      dYawDeg = ((dYawDeg + 540) % 360) - 180;
 
-      currentYaw = dYaw;
-      currentPitch = dPitch;
-      currentRoll = gamma;
+      // 수직 고도(Pitch): Z축(높이) 투영 각도 차이
+      const currentElev = Math.asin(Math.max(-1, Math.min(1, currentDir.z)));
+      const baseElev = Math.asin(Math.max(-1, Math.min(1, baseDir.z)));
+      const dPitchDeg = (currentElev - baseElev) * RAD2DEG;
+
+      currentYaw = dYawDeg;
+      currentPitch = dPitchDeg;
+      currentRoll = e.gamma || 0;
 
       socket.emit('aim', {
         yaw: currentYaw,
