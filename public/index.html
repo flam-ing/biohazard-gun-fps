@@ -70,7 +70,7 @@
       height: 58px;
       transform: translate(-50%, -50%);
       pointer-events: none;
-      z-index: 20;
+      z-index: 9999;
       transition: transform 0.025s linear;
     }
 
@@ -102,6 +102,27 @@
     .ch-bottom { width: 2px; height: 12px; left: 50%; bottom: -8px; transform: translateX(-50%); }
     .ch-left { width: 12px; height: 2px; top: 50%; left: -8px; transform: translateY(-50%); }
     .ch-right { width: 12px; height: 2px; top: 50%; right: -8px; transform: translateY(-50%); }
+
+    /* 연습 사격용 탄흔 이펙트 */
+    .bullet-hole {
+      position: fixed;
+      width: 14px;
+      height: 14px;
+      background: radial-gradient(circle, #ffeb3b 0%, #ff5722 40%, rgba(0,0,0,0.8) 70%, transparent 100%);
+      border: 1px solid #ff9800;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 9998;
+      box-shadow: 0 0 14px #ff5722;
+      animation: fadeHole 1.5s forwards;
+    }
+    @keyframes fadeHole {
+      0% { opacity: 1; transform: translate(-50%, -50%) scale(1.4); }
+      20% { transform: translate(-50%, -50%) scale(1); }
+      75% { opacity: 0.9; }
+      100% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+    }
 
     /* 상단 HUD */
     .hud-top {
@@ -480,12 +501,12 @@
       cursor: pointer;
     }
 
-    /* 모니터 3점 영점 캘리브레이션 오버레이 */
+    /* 모니터 9점 영점 캘리브레이션 오버레이 */
     #calibOverlay {
       position: fixed;
       inset: 0;
-      background: rgba(4, 7, 12, 0.94);
-      backdrop-filter: blur(8px);
+      background: rgba(4, 7, 12, 0.82);
+      backdrop-filter: blur(6px);
       z-index: 60;
       display: none;
       cursor: crosshair;
@@ -553,6 +574,200 @@
       from { transform: scale(0.9); opacity: 0.85; }
       to { transform: scale(1.1); opacity: 1; }
     }
+
+    /* 실시간 에임 검증 & 감도 튜닝 전용 HUD (배경 100% 투명 -> 실제 3D 복도 노출, 좀비 없음) */
+    #aimTuningHUD {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 85;
+      display: none;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      padding: 30px 24px 28px;
+    }
+
+    .tuning-top-banner {
+      pointer-events: auto;
+      background: rgba(11, 16, 26, 0.92);
+      border: 2px solid #38bdf8;
+      border-radius: 18px;
+      padding: 14px 28px;
+      text-align: center;
+      box-shadow: 0 10px 35px rgba(56, 189, 248, 0.3);
+      max-width: 780px;
+      width: 100%;
+      animation: bannerFloat 3s ease-in-out infinite alternate;
+    }
+    @keyframes bannerFloat {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(-4px); }
+    }
+
+    .tuning-top-title {
+      font-size: 22px;
+      font-weight: 900;
+      color: #38bdf8;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .tuning-top-desc {
+      font-size: 13.5px;
+      color: #cbd5e1;
+      line-height: 1.5;
+    }
+
+    .tuning-dock {
+      pointer-events: auto;
+      background: rgba(10, 15, 24, 0.95);
+      border: 2px solid #22c55e;
+      border-radius: 24px;
+      padding: 20px 28px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9), 0 0 35px rgba(34, 197, 94, 0.35);
+      max-width: 920px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .tuning-controls-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .tuning-card {
+      background: rgba(2, 6, 15, 0.7);
+      border: 1px solid #1e293b;
+      border-radius: 14px;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tuning-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 800;
+      color: #94a3b8;
+    }
+
+    .tuning-card-val {
+      font-size: 16px;
+      font-weight: 900;
+      color: #22c55e;
+      font-family: monospace;
+    }
+
+    .tuning-slider-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .tuning-step-btn {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #f8fafc;
+      font-size: 15px;
+      font-weight: 900;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      user-select: none;
+      transition: all 0.1s;
+    }
+    .tuning-step-btn:hover {
+      background: #334155;
+      border-color: #475569;
+    }
+    .tuning-step-btn:active {
+      transform: scale(0.92);
+    }
+
+    .tuning-range-input {
+      flex: 1;
+      accent-color: #22c55e;
+      cursor: pointer;
+      height: 6px;
+    }
+
+    .tuning-actions-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      padding-top: 6px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .btn-center-reset {
+      background: rgba(56, 189, 248, 0.15);
+      border: 1.5px solid #38bdf8;
+      color: #7dd3fc;
+      border-radius: 12px;
+      padding: 10px 18px;
+      font-size: 13.5px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s;
+    }
+    .btn-center-reset:hover {
+      background: rgba(56, 189, 248, 0.28);
+      color: #fff;
+    }
+
+    .btn-recalib {
+      background: rgba(239, 68, 68, 0.18);
+      border: 1.5px solid #ef4444;
+      color: #fca5a5;
+      border-radius: 12px;
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-recalib:hover {
+      background: rgba(239, 68, 68, 0.32);
+      color: #fff;
+    }
+
+    .btn-start-battle {
+      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+      border: none;
+      color: #fff;
+      border-radius: 14px;
+      padding: 14px 28px;
+      font-size: 16px;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 8px 24px rgba(34, 197, 94, 0.45);
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-start-battle:hover {
+      filter: brightness(1.1);
+      transform: translateY(-1px);
+    }
+    .btn-start-battle:active {
+      transform: scale(0.98);
+    }
   </style>
 </head>
 <body>
@@ -614,21 +829,60 @@
       <div class="calib-bullseye"></div>
       <div id="calibStepBadge" style="position: absolute; bottom: -28px; font-size: 13px; font-weight: 900; color: #fff; background: rgba(0,0,0,0.8); border: 1px solid #ef4444; padding: 2px 10px; border-radius: 999px; white-space: nowrap;">1 / 9</div>
     </div>
+  </div>
 
-    <!-- 9점 완료 후 에임 체험 및 최종 확인 패널 -->
-    <div id="calibVerifyPanel" style="display: none; position: absolute; bottom: 35px; left: 50%; transform: translateX(-50%); flex-direction: column; align-items: center; gap: 14px; background: rgba(15, 23, 42, 0.96); border: 2px solid #22c55e; border-radius: 20px; padding: 20px 32px; box-shadow: 0 0 45px rgba(34, 197, 94, 0.45); text-align: center; z-index: 10;">
-      <div style="font-size: 22px; font-weight: 900; color: #4ade80;">🎯 에임 체험 모드 : 에임이 화면에 잘 맞습니까?</div>
-      <div style="font-size: 13.5px; color: #cbd5e1; line-height: 1.5;">
-        모니터 구석구석 조준선을 움직여보고 연습 사격해 보세요.<br/>
-        <b style="color: #f59e0b;">에임이 완벽하면 [좀비전 시작]을 누르고, 이상하면 [다시 맞추기]를 누르세요.</b>
+  <!-- 9점 완료 후: 실제 3D 화면에서 조준선이 둥둥 뜨며 에임 및 감도를 직접 맞추는 HUD (좀비 없음!) -->
+  <div id="aimTuningHUD">
+    <div class="tuning-top-banner">
+      <div class="tuning-top-title">🎯 에임 검증 & 실시간 감도 튜닝 모드 (좀비 없음)</div>
+      <div class="tuning-top-desc">
+        아이폰을 움직여 <b>빨간색 조준선(크로스헤어)</b>이 모니터 구석구석 원하는 대로 잘 따라오는지 확인하세요.<br/>
+        아이폰 화면을 탭하면 <b>시험 사격(총소리 & 화면 탄흔 피격)</b>이 가능합니다!
       </div>
-      <div style="display: flex; gap: 16px; margin-top: 6px;">
-        <button id="btnConfirmStartGame" style="background: linear-gradient(135deg, #22c55e 0%, #15803d 100%); color: #fff; border: none; border-radius: 12px; padding: 14px 28px; font-size: 17px; font-weight: 900; cursor: pointer; box-shadow: 0 4px 18px rgba(34, 197, 94, 0.4);">
-          ✅ 에임 완벽함! 이제 좀비전 시작 ➔
+    </div>
+
+    <div class="tuning-dock">
+      <div class="tuning-controls-grid">
+        <!-- 좌우 수평 감도 -->
+        <div class="tuning-card">
+          <div class="tuning-card-header">
+            <span>↔️ 좌우(수평) 조준 감도</span>
+            <span class="tuning-card-val" id="valSensX">1.00x</span>
+          </div>
+          <div class="tuning-slider-row">
+            <button class="tuning-step-btn" id="btnSensXDown">-</button>
+            <input type="range" id="sliderSensX" class="tuning-range-input" min="0.4" max="3.0" step="0.05" value="1.0">
+            <button class="tuning-step-btn" id="btnSensXUp">+</button>
+          </div>
+        </div>
+
+        <!-- 상하 수직 감도 -->
+        <div class="tuning-card">
+          <div class="tuning-card-header">
+            <span>↕️ 상하(수직) 조준 감도</span>
+            <span class="tuning-card-val" id="valSensY">1.00x</span>
+          </div>
+          <div class="tuning-slider-row">
+            <button class="tuning-step-btn" id="btnSensYDown">-</button>
+            <input type="range" id="sliderSensY" class="tuning-range-input" min="0.4" max="3.0" step="0.05" value="1.0">
+            <button class="tuning-step-btn" id="btnSensYUp">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tuning-actions-row">
+        <button class="btn-center-reset" id="btnCenterReset">
+          🎯 지금 겨눈 곳을 정중앙으로 (Center Reset)
         </button>
-        <button id="btnRestartCalib" style="background: rgba(239, 68, 68, 0.2); border: 2px solid #ef4444; color: #fca5a5; border-radius: 12px; padding: 14px 22px; font-size: 15px; font-weight: 800; cursor: pointer;">
-          🔄 에임 이상함! 9점 다시 맞추기
-        </button>
+
+        <div style="display: flex; gap: 12px;">
+          <button class="btn-recalib" id="btnRestartCalib">
+            🔄 9점 다시 맞추기
+          </button>
+          <button class="btn-start-battle" id="btnConfirmStartGame">
+            🧟 감도 완료! 좀비전 시작 ➔
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -1338,17 +1592,28 @@
     }
 
     // =========================================================================
-    // 모니터 9점 정밀 캘리브레이션 시스템 (3x3 그리드 측정 & 에임 체험 모드)
+    // 모니터 9점 정밀 캘리브레이션 시스템 & 실시간 에임/감도 검증 모드
     // =========================================================================
     const calibOverlay = document.getElementById('calibOverlay');
     const calibTitle = document.getElementById('calibTitle');
     const calibSub = document.getElementById('calibSub');
     const calibTarget = document.getElementById('calibTarget');
     const calibStepBadge = document.getElementById('calibStepBadge');
-    const calibVerifyPanel = document.getElementById('calibVerifyPanel');
-    const btnConfirmStartGame = document.getElementById('btnConfirmStartGame');
-    const btnRestartCalib = document.getElementById('btnRestartCalib');
     const btnCalibStart = document.getElementById('btnCalibStart');
+
+    // 에임 검증 & 감도 튜닝 전용 HUD 요소
+    const aimTuningHUD = document.getElementById('aimTuningHUD');
+    const sliderSensX = document.getElementById('sliderSensX');
+    const sliderSensY = document.getElementById('sliderSensY');
+    const valSensX = document.getElementById('valSensX');
+    const valSensY = document.getElementById('valSensY');
+    const btnSensXDown = document.getElementById('btnSensXDown');
+    const btnSensXUp = document.getElementById('btnSensXUp');
+    const btnSensYDown = document.getElementById('btnSensYDown');
+    const btnSensYUp = document.getElementById('btnSensYUp');
+    const btnCenterReset = document.getElementById('btnCenterReset');
+    const btnRestartCalib = document.getElementById('btnRestartCalib');
+    const btnConfirmStartGame = document.getElementById('btnConfirmStartGame');
 
     // 9개 측정 포인트 정의 (모니터 3x3)
     const CALIB_GRID = [
@@ -1371,12 +1636,91 @@
       pitchHalfSpan: 16
     };
 
+    let sensX = 1.0;
+    let sensY = 1.0;
+
     let isCalibrating = false;
     let isVerifyingAim = false;
     let calibIndex = 0;
     let recordedPoints = [];
     let lastAimYaw = 0;
     let lastAimPitch = 0;
+
+    function updateSensDisplay() {
+      if (valSensX) valSensX.textContent = `${sensX.toFixed(2)}x`;
+      if (valSensY) valSensY.textContent = `${sensY.toFixed(2)}x`;
+      if (sliderSensX) sliderSensX.value = sensX;
+      if (sliderSensY) sliderSensY.value = sensY;
+    }
+
+    if (sliderSensX) {
+      sliderSensX.addEventListener('input', (e) => {
+        sensX = parseFloat(e.target.value);
+        updateSensDisplay();
+      });
+    }
+    if (sliderSensY) {
+      sliderSensY.addEventListener('input', (e) => {
+        sensY = parseFloat(e.target.value);
+        updateSensDisplay();
+      });
+    }
+
+    if (btnSensXDown) {
+      btnSensXDown.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sensX = Math.max(0.4, +(sensX - 0.1).toFixed(2));
+        updateSensDisplay();
+      });
+    }
+    if (btnSensXUp) {
+      btnSensXUp.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sensX = Math.min(3.0, +(sensX + 0.1).toFixed(2));
+        updateSensDisplay();
+      });
+    }
+    if (btnSensYDown) {
+      btnSensYDown.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sensY = Math.max(0.4, +(sensY - 0.1).toFixed(2));
+        updateSensDisplay();
+      });
+    }
+    if (btnSensYUp) {
+      btnSensYUp.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sensY = Math.min(3.0, +(sensY + 0.1).toFixed(2));
+        updateSensDisplay();
+      });
+    }
+
+    if (btnCenterReset) {
+      btnCenterReset.addEventListener('click', (e) => {
+        e.stopPropagation();
+        monitorCalib.centerYaw = lastAimYaw;
+        monitorCalib.centerPitch = lastAimPitch;
+        targetAimX = 0;
+        targetAimY = 0;
+        smoothAimX = 0;
+        smoothAimY = 0;
+        playSound('reload');
+        showBanner('🎯 현재 폰 위치를 모니터 정중앙으로 리셋했습니다!', '#38bdf8');
+      });
+    }
+
+    function createBulletHole(screenX, screenY) {
+      const hole = document.createElement('div');
+      hole.className = 'bullet-hole';
+      hole.style.left = `${screenX}px`;
+      hole.style.top = `${screenY}px`;
+      document.body.appendChild(hole);
+      setTimeout(() => {
+        if (hole && hole.parentNode) {
+          hole.parentNode.removeChild(hole);
+        }
+      }, 1500);
+    }
 
     function openCalibration() {
       ensureAudio();
@@ -1386,7 +1730,7 @@
       recordedPoints = [];
       calibOverlay.style.display = 'block';
       calibTarget.style.display = 'flex';
-      calibVerifyPanel.style.display = 'none';
+      aimTuningHUD.style.display = 'none';
       updateTargetPosition();
       playSound('empty');
     }
@@ -1420,8 +1764,7 @@
 
       // 9점 측정 완료! 모니터 크기와 시야각(FOV) 정밀 계산
       isCalibrating = false;
-      isVerifyingAim = true;
-      calibTarget.style.display = 'none';
+      calibOverlay.style.display = 'none'; // 어두운 캘리브레이션 창 닫기!
 
       // 좌측 열(0,3,6), 중앙 열(1,4,7), 우측 열(2,5,8)
       const leftYaw = (recordedPoints[0].yaw + recordedPoints[3].yaw + recordedPoints[6].yaw) / 3;
@@ -1443,28 +1786,35 @@
         pitchHalfSpan: Math.abs(calcHalfPitch) || 16
       };
 
-      // 에임 체험 모드 돌입
-      calibTitle.textContent = '🎉 9점 캘리브레이션 완료!';
-      calibSub.innerHTML = `좌우 화각: <b>±${monitorCalib.yawHalfSpan.toFixed(1)}°</b> | 상하 화각: <b>±${monitorCalib.pitchHalfSpan.toFixed(1)}°</b><br/>지금 아이폰을 움직여 모니터 구석구석 조준선이 잘 맞는지 <b>에임을 체험</b>해 보세요!`;
-      calibVerifyPanel.style.display = 'flex';
+      // 실제 3D 화면에서 조준선이 자유롭게 후버링하는 [에임 & 감도 튜닝 모드] 오픈!
+      isVerifyingAim = true;
+      aimTuningHUD.style.display = 'flex';
+      updateSensDisplay();
       playSound('reload');
-      showBanner('🎯 에임 체험 모드 활성! 화면을 겨눠보세요!', '#38bdf8');
+      showBanner('🎯 에임 검증 & 감도 튜닝 모드! 화면을 자유롭게 겨눠보세요!', '#38bdf8');
       return true;
     }
 
-    btnConfirmStartGame.addEventListener('click', (e) => {
-      e.stopPropagation();
-      calibOverlay.style.display = 'none';
-      isVerifyingAim = false;
-      startGame();
-    });
+    if (btnConfirmStartGame) {
+      btnConfirmStartGame.addEventListener('click', (e) => {
+        e.stopPropagation();
+        calibOverlay.style.display = 'none';
+        aimTuningHUD.style.display = 'none';
+        isVerifyingAim = false;
+        startGame();
+      });
+    }
 
-    btnRestartCalib.addEventListener('click', (e) => {
-      e.stopPropagation();
-      openCalibration();
-    });
+    if (btnRestartCalib) {
+      btnRestartCalib.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openCalibration();
+      });
+    }
 
-    btnCalibStart.addEventListener('click', openCalibration);
+    if (btnCalibStart) {
+      btnCalibStart.addEventListener('click', openCalibration);
+    }
 
     calibOverlay.addEventListener('mousedown', (e) => {
       if (isCalibrating) {
@@ -1501,12 +1851,12 @@
       if (typeof data.yaw === 'number') {
         lastAimYaw = data.yaw;
         lastAimPitch = data.pitch || 0;
-        // 9점 캘리브레이션으로 측정된 정확한 모니터 2D 정규화 매핑!
-        targetAimX = Math.max(-1.15, Math.min(1.15, (lastAimYaw - monitorCalib.centerYaw) / monitorCalib.yawHalfSpan));
-        targetAimY = Math.max(-1.15, Math.min(1.15, -(lastAimPitch - monitorCalib.centerPitch) / monitorCalib.pitchHalfSpan));
+        // 9점 캘리브레이션 기준각 + 사용자 감도(sensX, sensY) 반영
+        targetAimX = Math.max(-1.15, Math.min(1.15, ((lastAimYaw - monitorCalib.centerYaw) / monitorCalib.yawHalfSpan) * sensX));
+        targetAimY = Math.max(-1.15, Math.min(1.15, (-(lastAimPitch - monitorCalib.centerPitch) / monitorCalib.pitchHalfSpan) * sensY));
       } else {
-        targetAimX = Math.max(-1, Math.min(1, data.x || 0));
-        targetAimY = Math.max(-1, Math.min(1, data.y || 0));
+        targetAimX = Math.max(-1, Math.min(1, (data.x || 0) * sensX));
+        targetAimY = Math.max(-1, Math.min(1, (data.y || 0) * sensY));
       }
       gunRollDeg = data.roll || 0;
     });
@@ -1522,6 +1872,30 @@
       showBanner('🎯 중앙 영점 리셋 완료!', '#38bdf8');
     });
 
+    // 시험 사격 (에임 검증 단계에서 좀비 없이 사격감과 탄착 지점 체감)
+    function performTestShoot() {
+      ensureAudio();
+      playSound(currentWeaponKey || 'pistol');
+
+      // 총구 화염 및 총기 반동 연출
+      muzzleLight.intensity = 4.5;
+      setTimeout(() => { muzzleLight.intensity = 0; }, 55);
+      gunRecoilOffset = WEAPONS[currentWeaponKey].recoil;
+
+      // 크로스헤어 타격 스케일 애니메이션
+      crosshair.style.transform = `translate(-50%, -50%) rotate(${gunRollDeg}deg) scale(1.38)`;
+      setTimeout(() => {
+        crosshair.style.transform = `translate(-50%, -50%) rotate(${gunRollDeg}deg) scale(1)`;
+      }, 80);
+
+      // 현재 조준점 위치에 탄흔(Bullet Hole) 생성
+      const screenX = ((smoothAimX + 1) * 0.5) * window.innerWidth;
+      const screenY = ((smoothAimY + 1) * 0.5) * window.innerHeight;
+      createBulletHole(screenX, screenY);
+
+      showBanner('💥 BANG! (시험 사격)', '#22c55e');
+    }
+
     socket.on('shoot', (data) => {
       const shotYaw = (data && typeof data.yaw === 'number') ? data.yaw : lastAimYaw;
       const shotPitch = (data && typeof data.pitch === 'number') ? data.pitch : lastAimPitch;
@@ -1532,8 +1906,7 @@
       }
 
       if (isVerifyingAim) {
-        playSound('pistol');
-        showBanner('💥 BANG! 에임이 맞으면 아래 [좀비전 시작]을 누르세요!', '#22c55e');
+        performTestShoot();
         return;
       }
 
@@ -1564,16 +1937,23 @@
       }
     });
 
-    // PC 마우스 및 키보드(아이폰 연결 중에는 마우스 커서가 에임을 방해하지 않도록 보호)
+    // PC 마우스 및 키보드
     window.addEventListener('mousemove', (e) => {
       if (isPhoneAiming) return;
-      targetAimX = (e.clientX / window.innerWidth) * 2 - 1;
-      targetAimY = (e.clientY / window.innerHeight) * 2 - 1;
+      targetAimX = ((e.clientX / window.innerWidth) * 2 - 1) * sensX;
+      targetAimY = ((e.clientY / window.innerHeight) * 2 - 1) * sensY;
     });
 
     window.addEventListener('mousedown', (e) => {
       if (lobbyModal.style.display !== 'none') return;
-      if (e.target === btnToggleLobby) return;
+      if (e.target === btnToggleLobby || e.target.closest('#aimTuningHUD')) return;
+      if (isCalibrating) return;
+
+      if (isVerifyingAim) {
+        if (e.button === 0) performTestShoot();
+        return;
+      }
+
       if (e.button === 0) performShoot();
       else if (e.button === 2) performReload('QUICK RELOAD!');
     });
@@ -1594,6 +1974,7 @@
       ensureAudio();
       lobbyModal.style.display = 'none';
       calibOverlay.style.display = 'none';
+      aimTuningHUD.style.display = 'none';
       isCalibrating = false;
       isVerifyingAim = false;
       if (!gameActive) {
