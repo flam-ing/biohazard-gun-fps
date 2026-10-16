@@ -45,50 +45,91 @@ const io = new Server(httpServer, {
   }
 });
 
-let connectedControllers = new Set();
+const PLAYER_SLOTS = {
+  1: { slot: 1, name: 'P1', color: '#ef4444', label: '🔴 1P (RED)' },
+  2: { slot: 2, name: 'P2', color: '#06b6d4', label: '🔵 2P (BLUE)' },
+  3: { slot: 3, name: 'P3', color: '#eab308', label: '🟡 3P (YELLOW)' },
+  4: { slot: 4, name: 'P4', color: '#22c55e', label: '🟢 4P (GREEN)' }
+};
+
+// socket.id -> playerInfo
+const controllerPlayers = new Map();
+
+function assignPlayerSlot(socketId) {
+  const usedSlots = new Set([...controllerPlayers.values()].map(p => p.slot));
+  for (let s = 1; s <= 4; s++) {
+    if (!usedSlots.has(s)) {
+      const pInfo = { ...PLAYER_SLOTS[s], id: socketId };
+      controllerPlayers.set(socketId, pInfo);
+      return pInfo;
+    }
+  }
+  const overflow = { slot: 4, name: 'P4', color: '#22c55e', label: '🟢 4P (GREEN)', id: socketId };
+  controllerPlayers.set(socketId, overflow);
+  return overflow;
+}
+
+function getActivePlayers() {
+  return [...controllerPlayers.values()];
+}
 
 io.on('connection', (socket) => {
   socket.on('register_role', (role) => {
     socket.data.role = role;
     if (role === 'controller') {
-      connectedControllers.add(socket.id);
-      io.emit('controller_status', {
-        connected: connectedControllers.size > 0,
-        count: connectedControllers.size
+      const pInfo = assignPlayerSlot(socket.id);
+      socket.emit('player_assigned', pInfo);
+      io.emit('player_list_updated', {
+        players: getActivePlayers(),
+        count: controllerPlayers.size
       });
-      console.log(`📱 [아이폰 건 컨트롤러 연결됨] ID: ${socket.id}`);
+      console.log(`📱 [${pInfo.label} 건 컨트롤러 연결됨] ID: ${socket.id}`);
     } else if (role === 'display') {
-      socket.emit('controller_status', {
-        connected: connectedControllers.size > 0,
-        count: connectedControllers.size
+      socket.emit('player_list_updated', {
+        players: getActivePlayers(),
+        count: controllerPlayers.size
       });
       console.log(`🖥️ [PC 게임 화면 연결됨] ID: ${socket.id}`);
     }
   });
 
-  socket.on('aim', (data) => socket.broadcast.emit('aim', data));
-  socket.on('shoot', (data) => socket.broadcast.emit('shoot', data));
-  socket.on('reload', (data) => socket.broadcast.emit('reload', data));
-  socket.on('calibrate', (data) => socket.broadcast.emit('calibrate', data));
-  socket.on('weapon_change', (data) => socket.broadcast.emit('weapon_change', data));
-  socket.on('game_action', (data) => socket.broadcast.emit('game_action', data));
-  socket.on('sync_state', (data) => socket.broadcast.emit('sync_state', data));
-  socket.on('tuning_mode_start', (data) => socket.broadcast.emit('tuning_mode_start', data));
+  function forwardWithSlot(eventName) {
+    socket.on(eventName, (data = {}) => {
+      const p = controllerPlayers.get(socket.id);
+      if (p) {
+        data.slot = p.slot;
+        data.color = p.color;
+        data.playerName = p.name;
+      }
+      socket.broadcast.emit(eventName, data);
+    });
+  }
+
+  forwardWithSlot('aim');
+  forwardWithSlot('shoot');
+  forwardWithSlot('reload');
+  forwardWithSlot('calibrate');
+  forwardWithSlot('weapon_change');
+  forwardWithSlot('game_action');
+  forwardWithSlot('sync_state');
+  forwardWithSlot('tuning_mode_start');
+  forwardWithSlot('confirm_start_game');
+  forwardWithSlot('request_recalib');
+  forwardWithSlot('adjust_sens');
+  forwardWithSlot('change_preset');
+  forwardWithSlot('request_center_reset');
+
   socket.on('game_started', (data) => socket.broadcast.emit('game_started', data));
-  socket.on('confirm_start_game', (data) => socket.broadcast.emit('confirm_start_game', data));
-  socket.on('request_recalib', (data) => socket.broadcast.emit('request_recalib', data));
-  socket.on('adjust_sens', (data) => socket.broadcast.emit('adjust_sens', data));
-  socket.on('change_preset', (data) => socket.broadcast.emit('change_preset', data));
-  socket.on('request_center_reset', (data) => socket.broadcast.emit('request_center_reset', data));
 
   socket.on('disconnect', () => {
-    if (connectedControllers.has(socket.id)) {
-      connectedControllers.delete(socket.id);
-      io.emit('controller_status', {
-        connected: connectedControllers.size > 0,
-        count: connectedControllers.size
+    if (controllerPlayers.has(socket.id)) {
+      const p = controllerPlayers.get(socket.id);
+      controllerPlayers.delete(socket.id);
+      io.emit('player_list_updated', {
+        players: getActivePlayers(),
+        count: controllerPlayers.size
       });
-      console.log(`📱 [컨트롤러 연결 해제] ID: ${socket.id}`);
+      console.log(`📱 [${p.label} 컨트롤러 연결 해제] ID: ${socket.id}`);
     }
   });
 });

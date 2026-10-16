@@ -677,6 +677,97 @@
       box-shadow: 0 0 14px rgba(56, 189, 248, 0.3);
     }
 
+    /* 4인 멀티플레이어 실시간 크로스헤어 스타일 */
+    .player-crosshair {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      width: 58px;
+      height: 58px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 9999;
+      transition: transform 0.025s linear;
+    }
+    .ch-tag {
+      position: absolute;
+      top: -20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      font-weight: 900;
+      padding: 1px 8px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.9);
+      border: 1.5px solid currentColor;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+    .ch-p1 { color: #ef4444; }
+    .ch-p1 .ch-ring { border: 2px solid rgba(239, 68, 68, 0.85); box-shadow: 0 0 12px rgba(239, 68, 68, 0.6); }
+    .ch-p1 .ch-dot { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
+
+    .ch-p2 { color: #06b6d4; }
+    .ch-p2 .ch-ring { border: 2px solid rgba(6, 182, 212, 0.85); box-shadow: 0 0 12px rgba(6, 182, 212, 0.6); }
+    .ch-p2 .ch-dot { background: #06b6d4; box-shadow: 0 0 8px #06b6d4; }
+
+    .ch-p3 { color: #eab308; }
+    .ch-p3 .ch-ring { border: 2px solid rgba(234, 179, 8, 0.85); box-shadow: 0 0 12px rgba(234, 179, 8, 0.6); }
+    .ch-p3 .ch-dot { background: #eab308; box-shadow: 0 0 8px #eab308; }
+
+    .ch-p4 { color: #22c55e; }
+    .ch-p4 .ch-ring { border: 2px solid rgba(34, 197, 94, 0.85); box-shadow: 0 0 12px rgba(34, 197, 94, 0.6); }
+    .ch-p4 .ch-dot { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+
+    /* 4인 Co-Op 상단 스코어보드 */
+    .players-coop-bar {
+      display: flex;
+      gap: 8px;
+    }
+    .p-card {
+      background: rgba(10, 15, 24, 0.88);
+      border: 1.5px solid #1e293b;
+      border-radius: 12px;
+      padding: 8px 12px;
+      min-width: 95px;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .p-card.active {
+      border-color: currentColor;
+      box-shadow: 0 0 14px rgba(0, 0, 0, 0.8);
+    }
+    .p-card-top {
+      font-size: 11px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      letter-spacing: 0.5px;
+    }
+    .p-badge-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .p1-card { color: #ef4444; }
+    .p2-card { color: #06b6d4; }
+    .p3-card { color: #eab308; }
+    .p4-card { color: #22c55e; }
+    .p-score {
+      font-size: 17px;
+      font-weight: 900;
+      color: #fff;
+      font-variant-numeric: tabular-nums;
+      margin: 2px 0;
+    }
+    .p-sub {
+      font-size: 10px;
+      color: #64748b;
+      font-weight: 700;
+    }
   </style>
 </head>
 <body>
@@ -684,23 +775,78 @@
   <div id="damageVignette"></div>
   <div id="reloadFlash"></div>
 
-  <!-- 실시간 조준점 (Crosshair) -->
-  <div id="crosshair">
+  <!-- 4인 멀티플레이어 실시간 크로스헤어 (1P, 2P, 3P, 4P) -->
+  <div id="crosshair-p1" class="player-crosshair ch-p1">
     <div class="ch-ring"></div>
     <div class="ch-dot"></div>
     <div class="ch-line ch-top"></div>
     <div class="ch-line ch-bottom"></div>
     <div class="ch-line ch-left"></div>
     <div class="ch-line ch-right"></div>
+    <div class="ch-tag">1P</div>
   </div>
 
-  <!-- 상단 HUD -->
+  <div id="crosshair-p2" class="player-crosshair ch-p2" style="display: none;">
+    <div class="ch-ring"></div>
+    <div class="ch-dot"></div>
+    <div class="ch-line ch-top"></div>
+    <div class="ch-line ch-bottom"></div>
+    <div class="ch-line ch-left"></div>
+    <div class="ch-line ch-right"></div>
+    <div class="ch-tag">2P</div>
+  </div>
+
+  <div id="crosshair-p3" class="player-crosshair ch-p3" style="display: none;">
+    <div class="ch-ring"></div>
+    <div class="ch-dot"></div>
+    <div class="ch-line ch-top"></div>
+    <div class="ch-line ch-bottom"></div>
+    <div class="ch-line ch-left"></div>
+    <div class="ch-line ch-right"></div>
+    <div class="ch-tag">3P</div>
+  </div>
+
+  <div id="crosshair-p4" class="player-crosshair ch-p4" style="display: none;">
+    <div class="ch-ring"></div>
+    <div class="ch-dot"></div>
+    <div class="ch-line ch-top"></div>
+    <div class="ch-line ch-bottom"></div>
+    <div class="ch-line ch-left"></div>
+    <div class="ch-line ch-right"></div>
+    <div class="ch-tag">4P</div>
+  </div>
+
+  <!-- 상단 HUD (웨이브 정보 및 4인 Co-Op 현황) -->
   <div class="hud-top">
     <div class="brand-box">
-      <div class="brand-title">BIOHAZARD : SMART-GUN</div>
+      <div class="brand-title">BIOHAZARD : 4P CO-OP</div>
       <div class="conn-pill">
         <div class="conn-dot" id="hudConnDot"></div>
-        <span id="hudConnText">아이폰 연결 대기 중 (마우스 조작 가능)</span>
+        <span id="hudConnText">스마트폰 연결 대기 중 (최대 4인 Co-Op)</span>
+      </div>
+    </div>
+
+    <!-- 4인 실시간 스코어보드 -->
+    <div class="players-coop-bar" id="playersCoopBar">
+      <div class="p-card p1-card active" id="pCard1">
+        <div class="p-card-top"><span class="p-badge-dot" style="background: #ef4444;"></span> 1P</div>
+        <div class="p-score" id="p1Score">0</div>
+        <div class="p-sub" id="p1Sub">COMBO x1</div>
+      </div>
+      <div class="p-card p2-card" id="pCard2">
+        <div class="p-card-top"><span class="p-badge-dot" style="background: #06b6d4;"></span> 2P</div>
+        <div class="p-score" id="p2Score">대기 중</div>
+        <div class="p-sub" id="p2Sub">QR 연결</div>
+      </div>
+      <div class="p-card p3-card" id="pCard3">
+        <div class="p-card-top"><span class="p-badge-dot" style="background: #eab308;"></span> 3P</div>
+        <div class="p-score" id="p3Score">대기 중</div>
+        <div class="p-sub" id="p3Sub">QR 연결</div>
+      </div>
+      <div class="p-card p4-card" id="pCard4">
+        <div class="p-card-top"><span class="p-badge-dot" style="background: #22c55e;"></span> 4P</div>
+        <div class="p-score" id="p4Score">대기 중</div>
+        <div class="p-sub" id="p4Sub">QR 연결</div>
       </div>
     </div>
 
@@ -710,11 +856,7 @@
         <div class="stat-value" id="hudWave">1</div>
       </div>
       <div class="stat-item">
-        <div class="stat-label">COMBO</div>
-        <div class="stat-value" id="hudCombo" style="color: var(--amber);">x1</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-label">SCORE</div>
+        <div class="stat-label">TOTAL SCORE</div>
         <div class="stat-value" id="hudScore">0</div>
       </div>
     </div>
@@ -793,6 +935,9 @@
   <div id="aimHoverNotice" style="position: fixed; top: 90px; left: 50%; transform: translateX(-50%); background: rgba(10, 15, 24, 0.94); border: 2px solid #22c55e; border-radius: 20px; padding: 18px 36px; text-align: center; color: #fff; z-index: 50; display: none; box-shadow: 0 0 40px rgba(34, 197, 94, 0.35); pointer-events: none;">
     <div style="font-size: 22px; font-weight: 900; color: #22c55e; margin-bottom: 6px; letter-spacing: 1px;">
       🎯 에임 체험 & 감도 튜닝 중 (좀비 없음)
+    </div>
+    <div id="aimDetectResultText" style="font-size: 16px; color: #38bdf8; font-weight: 800; margin-bottom: 8px;">
+      📏 9점 측정으로 거리/모니터 크기를 자동 감지합니다
     </div>
     <div style="font-size: 15px; color: #cbd5e1; line-height: 1.6;">
       모니터 구석구석을 겨누고 폰을 탭해 <b>시험 사격</b>해 보세요.<br/>
@@ -1106,6 +1251,54 @@
     let gameActive = false;
     let isCalibrated = false;
     let practiceMode = true;
+
+    // 4인 멀티플레이어 개별 상태 관리
+    const PLAYERS = {
+      1: { slot: 1, name: '1P', color: '#ef4444', active: true, targetAimX: 0, targetAimY: 0, smoothAimX: 0, smoothAimY: 0, gunRollDeg: 0, score: 0, combo: 1, lastAimYaw: 0, lastAimPitch: 0 },
+      2: { slot: 2, name: '2P', color: '#06b6d4', active: false, targetAimX: 0, targetAimY: 0, smoothAimX: 0, smoothAimY: 0, gunRollDeg: 0, score: 0, combo: 1, lastAimYaw: 0, lastAimPitch: 0 },
+      3: { slot: 3, name: '3P', color: '#eab308', active: false, targetAimX: 0, targetAimY: 0, smoothAimX: 0, smoothAimY: 0, gunRollDeg: 0, score: 0, combo: 1, lastAimYaw: 0, lastAimPitch: 0 },
+      4: { slot: 4, name: '4P', color: '#22c55e', active: false, targetAimX: 0, targetAimY: 0, smoothAimX: 0, smoothAimY: 0, gunRollDeg: 0, score: 0, combo: 1, lastAimYaw: 0, lastAimPitch: 0 }
+    };
+
+    const crosshairP = {
+      1: document.getElementById('crosshair-p1'),
+      2: document.getElementById('crosshair-p2'),
+      3: document.getElementById('crosshair-p3'),
+      4: document.getElementById('crosshair-p4')
+    };
+
+    const pCards = {
+      1: document.getElementById('pCard1'),
+      2: document.getElementById('pCard2'),
+      3: document.getElementById('pCard3'),
+      4: document.getElementById('pCard4')
+    };
+
+    const pScores = {
+      1: document.getElementById('p1Score'),
+      2: document.getElementById('p2Score'),
+      3: document.getElementById('p3Score'),
+      4: document.getElementById('p4Score')
+    };
+
+    const pSubs = {
+      1: document.getElementById('p1Sub'),
+      2: document.getElementById('p2Sub'),
+      3: document.getElementById('p3Sub'),
+      4: document.getElementById('p4Sub')
+    };
+
+    function updatePlayerHUD(slot) {
+      const p = PLAYERS[slot];
+      if (!p) return;
+      if (pScores[slot]) pScores[slot].textContent = p.score.toLocaleString();
+      if (pSubs[slot]) pSubs[slot].textContent = `COMBO x${p.combo}`;
+
+      let total = 0;
+      for (let s = 1; s <= 4; s++) total += PLAYERS[s].score;
+      score = total;
+      hudScore.textContent = total.toLocaleString();
+    }
 
     // 조준 상태 (-1 ~ +1 정규화 화면 좌표)
     let targetAimX = 0;
@@ -1523,10 +1716,11 @@
     // =========================================================================
     const raycaster = new THREE.Raycaster();
 
-    function performShoot() {
+    function performShoot(slot = 1) {
       ensureAudio();
       if (!gameActive) return;
 
+      const p = PLAYERS[slot] || PLAYERS[1];
       const weapon = WEAPONS[currentWeaponKey];
       if (ammo <= 0) {
         playSound('empty');
@@ -1543,11 +1737,14 @@
       setTimeout(() => { muzzleLight.intensity = 0; }, 55);
       gunRecoilOffset = weapon.recoil;
 
-      // 크로스헤어 타격 스케일 애니메이션
-      crosshair.style.transform = `translate(-50%, -50%) rotate(${gunRollDeg}deg) scale(1.38)`;
-      setTimeout(() => {
-        crosshair.style.transform = `translate(-50%, -50%) rotate(${gunRollDeg}deg) scale(1)`;
-      }, 80);
+      // 해당 플레이어의 크로스헤어 타격 스케일 애니메이션
+      const ch = crosshairP[slot] || crosshairP[1];
+      if (ch) {
+        ch.style.transform = `translate(-50%, -50%) rotate(${p.gunRollDeg}deg) scale(1.38)`;
+        setTimeout(() => {
+          if (ch) ch.style.transform = `translate(-50%, -50%) rotate(${p.gunRollDeg}deg) scale(1)`;
+        }, 80);
+      }
 
       // 피격 판정 대상 메쉬 수집 (좀비 + 날아오는 산성 독액 구체!)
       const hitMeshes = [];
@@ -1560,8 +1757,8 @@
           });
         }
       });
-      acidProjectiles.forEach((p) => {
-        hitMeshes.push(p.mesh);
+      acidProjectiles.forEach((proj) => {
+        hitMeshes.push(proj.mesh);
       });
 
       let hitAny = false;
@@ -1569,8 +1766,8 @@
       for (let i = 0; i < weapon.pellets; i++) {
         const spreadX = (Math.random() - 0.5) * weapon.spread;
         const spreadY = (Math.random() - 0.5) * weapon.spread;
-        const ndcX = Math.max(-1, Math.min(1, smoothAimX + spreadX));
-        const ndcY = Math.max(-1, Math.min(1, -smoothAimY + spreadY)); // Three.js NDC Y는 위가 +1
+        const ndcX = Math.max(-1, Math.min(1, p.smoothAimX + spreadX));
+        const ndcY = Math.max(-1, Math.min(1, -p.smoothAimY + spreadY)); // Three.js NDC Y는 위가 +1
 
         raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
         const intersects = raycaster.intersectObjects(hitMeshes, false);
@@ -1581,16 +1778,16 @@
 
           // 산성액 공중 격추!
           if (hit.object.userData.isAcidSpit) {
-            const idx = acidProjectiles.findIndex((p) => p.mesh === hit.object);
+            const idx = acidProjectiles.findIndex((proj) => proj.mesh === hit.object);
             if (idx !== -1) {
               scene.remove(hit.object);
               acidProjectiles.splice(idx, 1);
             }
             spawnBloodBurst(hit.point, 16);
             playSound('spit_pop');
-            showBanner('💥 독액 요격 성공! (+150)', '#4ade80');
-            score += 150;
-            hudScore.textContent = score.toLocaleString();
+            p.score += 150;
+            updatePlayerHUD(slot);
+            showBanner(`💥 [${p.name}] 독액 요격 성공! (+150)`, p.color);
             continue;
           }
 
@@ -1608,7 +1805,7 @@
 
             if (isHead) {
               playSound('headshot');
-              showBanner('💥 CRITICAL HEADSHOT!', '#ffab00');
+              showBanner(`💥 [${p.name}] CRITICAL HEADSHOT!`, p.color);
             }
 
             if (zombie.hp <= 0) {
@@ -1616,11 +1813,10 @@
               if (isHead) {
                 zombie.headGroup.visible = false; // 헤드샷 처치 시 머리 파괴!
               }
-              combo++;
-              const pts = (isHead ? 250 : 100) * combo;
-              score += pts;
-              hudScore.textContent = score.toLocaleString();
-              hudCombo.textContent = `x${combo}`;
+              p.combo++;
+              const pts = (isHead ? 250 : 100) * p.combo;
+              p.score += pts;
+              updatePlayerHUD(slot);
               playSound('zombie_groan');
             }
           }
@@ -1628,8 +1824,8 @@
       }
 
       if (!hitAny && weapon.pellets === 1) {
-        combo = 1;
-        hudCombo.textContent = 'x1';
+        p.combo = 1;
+        updatePlayerHUD(slot);
       }
     }
 
@@ -1826,6 +2022,7 @@
       isCalibrating = false;
       calibOverlay.style.display = 'none';
 
+      // 9점 측정값 분석
       const leftYaw = (recordedPoints[0].yaw + recordedPoints[3].yaw + recordedPoints[6].yaw) / 3;
       const centerColYaw = (recordedPoints[1].yaw + recordedPoints[4].yaw + recordedPoints[7].yaw) / 3;
       const rightYaw = (recordedPoints[2].yaw + recordedPoints[5].yaw + recordedPoints[8].yaw) / 3;
@@ -1834,22 +2031,60 @@
       const midRowPitch = (recordedPoints[3].pitch + recordedPoints[4].pitch + recordedPoints[5].pitch) / 3;
       const bottomPitch = (recordedPoints[6].pitch + recordedPoints[7].pitch + recordedPoints[8].pitch) / 3;
 
-      const calcHalfYaw = Math.max(12, ((rightYaw - centerColYaw) + (centerColYaw - leftYaw)) / 2);
-      const calcHalfPitch = Math.max(8, ((bottomPitch - midRowPitch) + (midRowPitch - topPitch)) / 2);
+      // 15% ~ 85%의 수평 폭 = 전체 모니터 가로 폭의 70%
+      const measuredSpan70 = Math.abs(rightYaw - leftYaw);
+      const estimatedFullYawSpan = Math.max(20, measuredSpan70 / 0.70);
+      const halfYaw = estimatedFullYawSpan / 2;
+
+      // 상하 18% ~ 82% = 전체 모니터 세로 폭의 64%
+      const measuredPitchSpan64 = Math.abs(bottomPitch - topPitch);
+      const estimatedFullPitchSpan = Math.max(14, measuredPitchSpan64 / 0.64);
+      const halfPitch = estimatedFullPitchSpan / 2;
+
+      // 거리 및 환경 자동 판별:
+      // 모니터에 가까울수록(책상) 필요한 각도(화각)가 크고, 멀어질수록(TV) 필요한 각도가 좁아집니다!
+      let detectedPreset = 'normal';
+      let detectedName = '🖥️ 일반 데스크톱 모니터 (거리 ~1m 감지)';
+      let detectedSens = 0.85;
+
+      if (halfYaw >= 33) {
+        detectedPreset = 'desk';
+        detectedName = '💻 책상 / 노트북 / 근거리 (~50cm 감지)';
+        detectedSens = 0.70; // 가까우면 손떨림 방지를 위해 감도를 안정적으로
+      } else if (halfYaw < 22) {
+        detectedPreset = 'tv';
+        detectedName = '📺 거실 / 대형 TV / 원거리 (2m+ 감지)';
+        detectedSens = 1.15; // 멀면 손목 조금만 꺾어도 화면 끝에 닿도록 감도 업
+      }
+
+      currentPresetKey = detectedPreset;
+      sensX = detectedSens;
+      sensY = detectedSens;
 
       monitorCalib = {
         centerYaw: centerColYaw,
         centerPitch: midRowPitch,
-        yawHalfSpan: Math.abs(calcHalfYaw) || 35,
-        pitchHalfSpan: Math.abs(calcHalfPitch) || 22
+        yawHalfSpan: halfYaw,
+        pitchHalfSpan: halfPitch
       };
 
       // 9점 보정 완료 후 에임 검증 모드 진입 (핸드폰에만 확인 패널 오픈!)
       isVerifyingAim = true;
-      if (aimHoverNotice) aimHoverNotice.style.display = 'block';
+      if (aimHoverNotice) {
+        aimHoverNotice.style.display = 'block';
+        const detectNotice = document.getElementById('aimDetectResultText');
+        if (detectNotice) {
+          detectNotice.innerHTML = `📏 <b>9점 자동 거리/크기 감지 완료:</b> ${detectedName}<br/><span style="font-size: 13px; color: #86efac;">전체 화각: ${estimatedFullYawSpan.toFixed(1)}° | 최적 조준 감도: ${detectedSens.toFixed(2)}x 자동 설정됨</span>`;
+        }
+      }
       playSound('reload');
-      showBanner('🎯 9점 영점 완료! 핸드폰에서 [좀비전 시작]을 터치하세요!', '#38bdf8');
-      socket.emit('tuning_mode_start', { sens: sensX, preset: currentPresetKey });
+      showBanner(`🎯 거리/크기 감지: ${detectedName}`, '#38bdf8');
+      socket.emit('tuning_mode_start', {
+        sens: sensX,
+        preset: currentPresetKey,
+        detectedName,
+        spanYaw: estimatedFullYawSpan
+      });
       return true;
     }
 
@@ -1882,46 +2117,73 @@
       socket.emit('register_role', 'display');
     });
 
-    let isPhoneAiming = false;
+    socket.on('player_list_updated', (data) => {
+      const activeList = data.players || [];
+      const activeSlots = new Set(activeList.map((p) => p.slot));
 
-    socket.on('controller_status', (status) => {
-      if (status.connected) {
-        isPhoneAiming = true;
+      for (let s = 1; s <= 4; s++) {
+        const isAct = activeSlots.has(s);
+        PLAYERS[s].active = isAct;
+        if (pCards[s]) {
+          pCards[s].classList.toggle('active', isAct);
+          if (isAct) {
+            pScores[s].textContent = PLAYERS[s].score.toLocaleString();
+            pSubs[s].textContent = `COMBO x${PLAYERS[s].combo}`;
+          } else {
+            pScores[s].textContent = '대기 중';
+            pSubs[s].textContent = 'QR 연결';
+          }
+        }
+        if (crosshairP[s]) {
+          crosshairP[s].style.display = isAct ? 'block' : 'none';
+        }
+      }
+
+      const count = data.count || 0;
+      if (count > 0) {
         hudConnDot.classList.add('online');
-        hudConnText.textContent = `아이폰 연결됨 (정밀 3D 조준)`;
+        hudConnText.textContent = `스마트폰 ${count}명 연결됨 (최대 4인 Co-Op)`;
         if (!isQuickCalibrating && !isCalibrating && !isVerifyingAim && !gameActive) {
-          setTimeout(openQuickCalibration, 600);
+          setTimeout(openCalibration, 600);
         }
       } else {
-        isPhoneAiming = false;
         hudConnDot.classList.remove('online');
-        hudConnText.textContent = `아이폰 연결 대기 중 (QR 코드로 연결)`;
+        hudConnText.textContent = `스마트폰 연결 대기 중 (최대 4인 Co-Op)`;
       }
     });
 
     socket.on('aim', (data) => {
-      isPhoneAiming = true;
+      const slot = (data && data.slot) || 1;
+      const p = PLAYERS[slot] || PLAYERS[1];
       if (typeof data.yaw === 'number') {
+        p.lastAimYaw = data.yaw;
+        p.lastAimPitch = data.pitch || 0;
         lastAimYaw = data.yaw;
         lastAimPitch = data.pitch || 0;
         // 환경 프리셋 화각(yawHalfSpan) + 사용자 감도 배율!
-        targetAimX = Math.max(-1.15, Math.min(1.15, ((lastAimYaw - monitorCalib.centerYaw) / monitorCalib.yawHalfSpan) * sensX));
-        targetAimY = Math.max(-1.15, Math.min(1.15, (-(lastAimPitch - monitorCalib.centerPitch) / monitorCalib.pitchHalfSpan) * sensY));
+        p.targetAimX = Math.max(-1.15, Math.min(1.15, ((data.yaw - monitorCalib.centerYaw) / monitorCalib.yawHalfSpan) * sensX));
+        p.targetAimY = Math.max(-1.15, Math.min(1.15, (-(data.pitch - monitorCalib.centerPitch) / monitorCalib.pitchHalfSpan) * sensY));
       } else {
-        targetAimX = Math.max(-1, Math.min(1, (data.x || 0) * sensX));
-        targetAimY = Math.max(-1, Math.min(1, (data.y || 0) * sensY));
+        p.targetAimX = Math.max(-1, Math.min(1, (data.x || 0) * sensX));
+        p.targetAimY = Math.max(-1, Math.min(1, (data.y || 0) * sensY));
       }
-      gunRollDeg = data.roll || 0;
+      p.gunRollDeg = data.roll || 0;
+      if (slot === 1) {
+        targetAimX = p.targetAimX;
+        targetAimY = p.targetAimY;
+        gunRollDeg = p.gunRollDeg;
+      }
     });
 
     socket.on('calibrate', () => {
       monitorCalib.centerYaw = lastAimYaw;
       monitorCalib.centerPitch = lastAimPitch;
-      targetAimX = 0;
-      targetAimY = 0;
-      smoothAimX = 0;
-      smoothAimY = 0;
-      gunRollDeg = 0;
+      for (let s = 1; s <= 4; s++) {
+        PLAYERS[s].targetAimX = 0;
+        PLAYERS[s].targetAimY = 0;
+        PLAYERS[s].smoothAimX = 0;
+        PLAYERS[s].smoothAimY = 0;
+      }
       showBanner('🎯 중앙 영점 리셋 완료!', '#38bdf8');
     });
 
@@ -1941,10 +2203,12 @@
     socket.on('request_center_reset', () => {
       monitorCalib.centerYaw = lastAimYaw;
       monitorCalib.centerPitch = lastAimPitch;
-      targetAimX = 0;
-      targetAimY = 0;
-      smoothAimX = 0;
-      smoothAimY = 0;
+      for (let s = 1; s <= 4; s++) {
+        PLAYERS[s].targetAimX = 0;
+        PLAYERS[s].targetAimY = 0;
+        PLAYERS[s].smoothAimX = 0;
+        PLAYERS[s].smoothAimY = 0;
+      }
       playSound('reload');
       showBanner('🎯 스마트폰 위치를 모니터 정중앙으로 리셋 완료!', '#38bdf8');
     });
@@ -1967,32 +2231,38 @@
     });
 
     // 시험 사격 (에임 검증 단계에서 좀비 없이 사격감과 탄착 지점 체감)
-    function performTestShoot() {
+    function performTestShoot(slot = 1) {
       ensureAudio();
+      const p = PLAYERS[slot] || PLAYERS[1];
       playSound(currentWeaponKey || 'pistol');
 
       muzzleLight.intensity = 4.5;
       setTimeout(() => { muzzleLight.intensity = 0; }, 55);
       gunRecoilOffset = WEAPONS[currentWeaponKey].recoil;
 
-      crosshair.style.transform = `translate(-50%, -50%) rotate(${gunRollDeg}deg) scale(1.38)`;
-      setTimeout(() => {
-        crosshair.style.transform = `translate(-50%, -50%) rotate(${gunRollDeg}deg) scale(1)`;
-      }, 80);
+      const ch = crosshairP[slot] || crosshairP[1];
+      if (ch) {
+        ch.style.transform = `translate(-50%, -50%) rotate(${p.gunRollDeg}deg) scale(1.38)`;
+        setTimeout(() => {
+          if (ch) ch.style.transform = `translate(-50%, -50%) rotate(${p.gunRollDeg}deg) scale(1)`;
+        }, 80);
+      }
 
-      const rawScreenX = ((smoothAimX + 1) * 0.5) * window.innerWidth;
-      const rawScreenY = ((smoothAimY + 1) * 0.5) * window.innerHeight;
+      const rawScreenX = ((p.smoothAimX + 1) * 0.5) * window.innerWidth;
+      const rawScreenY = ((p.smoothAimY + 1) * 0.5) * window.innerHeight;
       const margin = 24;
       const screenX = Math.max(margin, Math.min(window.innerWidth - margin, rawScreenX));
       const screenY = Math.max(margin, Math.min(window.innerHeight - margin, rawScreenY));
       createBulletHole(screenX, screenY);
 
-      showBanner('💥 BANG! (시험 사격)', '#22c55e');
+      showBanner(`💥 [${p.name}] BANG! (시험 사격)`, p.color);
     }
 
     socket.on('shoot', (data) => {
-      const shotYaw = (data && typeof data.yaw === 'number') ? data.yaw : lastAimYaw;
-      const shotPitch = (data && typeof data.pitch === 'number') ? data.pitch : lastAimPitch;
+      const slot = (data && data.slot) || 1;
+      const p = PLAYERS[slot] || PLAYERS[1];
+      const shotYaw = (data && typeof data.yaw === 'number') ? data.yaw : p.lastAimYaw;
+      const shotPitch = (data && typeof data.pitch === 'number') ? data.pitch : p.lastAimPitch;
 
       if (isQuickCalibrating) {
         finishQuickCalibration(shotYaw, shotPitch);
@@ -2005,19 +2275,21 @@
       }
 
       if (isVerifyingAim) {
-        performTestShoot();
+        performTestShoot(slot);
         return;
       }
 
       if (!gameActive) {
         startGame();
       } else {
-        performShoot();
+        performShoot(slot);
       }
     });
 
     socket.on('reload', (data) => {
-      performReload(data && data.method ? data.method : 'TACTICAL RELOAD!');
+      const slot = (data && data.slot) || 1;
+      const p = PLAYERS[slot] || PLAYERS[1];
+      performReload(`[${p.name}] ${data && data.method ? data.method : 'RELOAD!'}`);
     });
 
     socket.on('weapon_change', (data) => {
@@ -2095,10 +2367,10 @@
       socket.emit('game_started');
     }
 
-    // 로비의 시작 버튼을 누르면 먼저 초간단 1초 중앙 영점 맞추기를 시작합니다!
+    // 로비의 시작 버튼을 누르면 정밀 9점 영점 맞추기를 시작합니다!
     btnStartGame.addEventListener('click', () => {
       lobbyModal.style.display = 'none';
-      openQuickCalibration();
+      openCalibration();
     });
 
     btnToggleLobby.addEventListener('click', () => {
@@ -2120,32 +2392,43 @@
       // 비상등 깜빡임 연출
       emergencyLight.intensity = 1.3 + Math.sin(now * 0.008) * 0.5;
 
-      // 1. 에임 스무딩 및 화면 크로스헤어 이동 (모니터 밖 이탈 원천 차단 쿠션!)
-      smoothAimX += (targetAimX - smoothAimX) * 0.35;
-      smoothAimY += (targetAimY - smoothAimY) * 0.35;
+      // 1. 4인 플레이어 에임 스무딩 및 개별 크로스헤어 화면 동기화
+      for (let s = 1; s <= 4; s++) {
+        const p = PLAYERS[s];
+        const ch = crosshairP[s];
+        if (!ch) continue;
+        if (!p.active && s > 1) {
+          ch.style.display = 'none';
+          continue;
+        }
+        ch.style.display = 'block';
 
-      const rawScreenX = ((smoothAimX + 1) * 0.5) * window.innerWidth;
-      const rawScreenY = ((smoothAimY + 1) * 0.5) * window.innerHeight;
+        p.smoothAimX += (p.targetAimX - p.smoothAimX) * 0.35;
+        p.smoothAimY += (p.targetAimY - p.smoothAimY) * 0.35;
 
-      // 화면 가장자리 24px 안쪽으로 소프트 락 -> 절대 화면 밖으로 날아가지 않음!
-      const margin = 24;
-      const screenX = Math.max(margin, Math.min(window.innerWidth - margin, rawScreenX));
-      const screenY = Math.max(margin, Math.min(window.innerHeight - margin, rawScreenY));
+        const rawScreenX = ((p.smoothAimX + 1) * 0.5) * window.innerWidth;
+        const rawScreenY = ((p.smoothAimY + 1) * 0.5) * window.innerHeight;
 
-      crosshair.style.left = `${screenX}px`;
-      crosshair.style.top = `${screenY}px`;
-      crosshair.style.transform = `translate(-50%, -50%) rotate(${gunRollDeg}deg)`;
+        const margin = 24;
+        const screenX = Math.max(margin, Math.min(window.innerWidth - margin, rawScreenX));
+        const screenY = Math.max(margin, Math.min(window.innerHeight - margin, rawScreenY));
 
-      // 2. 3D 총기 및 전술 라이트가 아이폰 에임을 실시간으로 바라보도록 회전
-      const targetWorldX = smoothAimX * 7.5;
-      const targetWorldY = 1.6 - smoothAimY * 4.2;
+        ch.style.left = `${screenX}px`;
+        ch.style.top = `${screenY}px`;
+        ch.style.transform = `translate(-50%, -50%) rotate(${p.gunRollDeg}deg)`;
+      }
+
+      // 1P 조준에 따라 3D 총기와 플래시라이트 타겟 연동
+      const p1 = PLAYERS[1];
+      const targetWorldX = p1.smoothAimX * 7.5;
+      const targetWorldY = 1.6 - p1.smoothAimY * 4.2;
       flashlightTarget.position.set(targetWorldX, targetWorldY, -10);
 
       gunRecoilOffset = Math.max(0, gunRecoilOffset - dt * 1.8);
       gunReloadTilt = Math.max(0, gunReloadTilt - dt * 3.2);
 
       gunGroup.lookAt(targetWorldX, targetWorldY, -10);
-      gunGroup.rotateZ(THREE.MathUtils.degToRad(-gunRollDeg * 0.65));
+      gunGroup.rotateZ(THREE.MathUtils.degToRad(-p1.gunRollDeg * 0.65));
       gunGroup.rotateX(gunRecoilOffset + gunReloadTilt);
       gunGroup.position.z = 3.65 + gunRecoilOffset * 0.35;
 

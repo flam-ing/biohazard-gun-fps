@@ -259,7 +259,8 @@
     <button class="start-btn" id="btnActivate">센서 시작 (터치)</button>
   </div>
 
-  <div id="miniStatus">CONNECTED • GYRO ACTIVE</div>
+  <div id="playerSlotBadge" style="position: fixed; top: 10px; left: 14px; font-size: 12px; font-weight: 900; color: #ef4444; border: 1.5px solid #ef4444; border-radius: 999px; padding: 4px 12px; background: rgba(8, 12, 18, 0.88); z-index: 60; letter-spacing: 0.5px;">🔴 1P 연결 대기 중</div>
+  <div id="miniStatus" style="display: none;">CONNECTED</div>
   <button id="btnPhoneOpenSettings">⚙️ 영점/설정</button>
 
   <!-- [오직 핸드폰에서만 뜨는 에임/감도/영점 설정 패널] (설정할 때만 표시) -->
@@ -267,6 +268,9 @@
     <div class="phone-tuning-header">
       🎯 화면 상단을 터치해 <b>시험 사격</b>해보고<br/>설정이 끝나면 맨 아래 <b>[좀비전 시작]</b>을 누르세요!
     </div>
+
+    <!-- 9점 캘리브레이션 자동 판별 결과 배너 -->
+    <div id="phoneAutoDetectBanner" style="display: none; background: rgba(34, 197, 94, 0.15); border: 1.5px solid #22c55e; border-radius: 12px; padding: 10px 12px; text-align: center; color: #4ade80; font-size: 13px; font-weight: 800; line-height: 1.45;"></div>
 
     <!-- 거리 환경 프리셋 선택 -->
     <div class="phone-preset-row">
@@ -287,6 +291,9 @@
         <button class="btn-sens-step" id="btnPhoneSensUp">+</button>
       </div>
     </div>
+
+    <!-- 좌우 반전 토글 버튼 -->
+    <button id="btnPhoneInvertX" style="background: #0f172a; border: 1px solid #334155; color: #94a3b8; font-size: 12px; font-weight: 800; padding: 10px; border-radius: 10px; cursor: pointer; text-align: center;">↔️ 조준 좌우 반전: OFF</button>
 
     <!-- 영점 맞추기 버튼 2개 -->
     <div class="phone-action-grid">
@@ -317,10 +324,23 @@
     const btnActivate = document.getElementById('btnActivate');
     const miniStatus = document.getElementById('miniStatus');
 
-    let currentYaw = 0;
-    let currentPitch = 0;
-    let currentRoll = 0;
-    let lastReloadTime = 0;
+    let mySlot = 1;
+    let myColor = '#ef4444';
+    let myPlayerName = 'P1';
+    let invertX = false;
+
+    const playerSlotBadge = document.getElementById('playerSlotBadge');
+
+    socket.on('player_assigned', (pInfo) => {
+      mySlot = pInfo.slot;
+      myColor = pInfo.color;
+      myPlayerName = pInfo.name;
+      if (playerSlotBadge) {
+        playerSlotBadge.textContent = `${pInfo.label} 건 컨트롤러`;
+        playerSlotBadge.style.color = pInfo.color;
+        playerSlotBadge.style.borderColor = pInfo.color;
+      }
+    });
 
     // 햅틱 및 사운드
     function triggerHaptic(type) {
@@ -332,19 +352,17 @@
 
     function flashColor(colorType) {
       if (colorType === 'shoot') {
-        document.body.classList.remove('reload-flash');
-        document.body.classList.add('fire-flash');
-        setTimeout(() => document.body.classList.remove('fire-flash'), 75);
+        document.body.style.backgroundColor = myColor || '#ef4444';
+        setTimeout(() => { document.body.style.backgroundColor = '#000000'; }, 70);
       } else if (colorType === 'reload') {
-        document.body.classList.remove('fire-flash');
-        document.body.classList.add('reload-flash');
+        document.body.style.backgroundColor = '#38bdf8';
         setTimeout(() => {
-          document.body.classList.remove('reload-flash');
+          document.body.style.backgroundColor = '#000000';
           setTimeout(() => {
-            document.body.classList.add('reload-flash');
-            setTimeout(() => document.body.classList.remove('reload-flash'), 100);
-          }, 80);
-        }, 120);
+            document.body.style.backgroundColor = '#38bdf8';
+            setTimeout(() => { document.body.style.backgroundColor = '#000000'; }, 60);
+          }, 70);
+        }, 90);
       }
     }
 
@@ -352,7 +370,7 @@
       const now = Date.now();
       if (now - lastReloadTime < 550) return;
       lastReloadTime = now;
-      socket.emit('reload', { method: 'gesture' });
+      socket.emit('reload', { method: 'gesture', slot: mySlot });
       triggerHaptic('reload');
       flashColor('reload');
     }
@@ -392,10 +410,11 @@
         baseDir = currentDir.clone();
       }
 
-      // 수평 회전(Yaw): X-Y 평면 상의 방위각 차이
+      // 수평 회전(Yaw): X-Y 평면 상의 방위각 차이 (정방향: 우측 회전 시 양수)
       const currentHeading = Math.atan2(currentDir.x, currentDir.y);
       const baseHeading = Math.atan2(baseDir.x, baseDir.y);
-      let dYawDeg = -(currentHeading - baseHeading) * RAD2DEG;
+      let dYawDeg = (currentHeading - baseHeading) * RAD2DEG;
+      if (invertX) dYawDeg = -dYawDeg;
       dYawDeg = ((dYawDeg + 540) % 360) - 180;
 
       // 수직 고도(Pitch): Z축(높이) 투영 각도 차이
@@ -408,6 +427,7 @@
       currentRoll = e.gamma || 0;
 
       socket.emit('aim', {
+        slot: mySlot,
         yaw: currentYaw,
         pitch: currentPitch,
         roll: currentRoll
@@ -479,12 +499,35 @@
       triggerHaptic('reload');
     });
 
+    // 좌우 반전 토글
+    const btnPhoneInvertX = document.getElementById('btnPhoneInvertX');
+    if (btnPhoneInvertX) {
+      btnPhoneInvertX.addEventListener('click', (e) => {
+        e.stopPropagation();
+        invertX = !invertX;
+        btnPhoneInvertX.textContent = invertX ? '↔️ 조준 좌우 반전: ON' : '↔️ 조준 좌우 반전: OFF';
+        btnPhoneInvertX.style.borderColor = invertX ? '#38bdf8' : '#334155';
+        btnPhoneInvertX.style.color = invertX ? '#38bdf8' : '#94a3b8';
+        triggerHaptic('shoot');
+      });
+    }
+
     socket.on('tuning_mode_start', (data) => {
       phoneTuningPanel.style.display = 'flex';
       miniStatus.textContent = '🎯 에임 체험 모드 (아래에서 [시작] 터치)';
       if (data && data.sens) {
         currentPhoneSens = data.sens;
         phoneSensVal.textContent = `${currentPhoneSens.toFixed(2)}x`;
+      }
+      if (data && data.preset) {
+        document.querySelectorAll('.btn-phone-preset').forEach((b) => {
+          b.classList.toggle('active', b.getAttribute('data-preset') === data.preset);
+        });
+      }
+      const banner = document.getElementById('phoneAutoDetectBanner');
+      if (banner && data && data.detectedName) {
+        banner.style.display = 'block';
+        banner.innerHTML = `🎯 <b>9점 자동 거리/크기 감지</b><br/><span style="color: #fff; font-size: 14px;">${data.detectedName}</span><br/><span style="font-size: 11px; color: #86efac;">화각 ${data.spanYaw ? data.spanYaw.toFixed(1) + '°' : ''} 기준 최적 감도 자동 설정됨</span>`;
       }
       triggerHaptic('reload');
     });
@@ -509,7 +552,7 @@
         const preset = btn.getAttribute('data-preset');
         document.querySelectorAll('.btn-phone-preset').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
-        socket.emit('change_preset', { preset });
+        socket.emit('change_preset', { preset, slot: mySlot });
         triggerHaptic('shoot');
       });
     });
@@ -517,14 +560,14 @@
     // 지금 겨눈 곳을 정중앙으로 (Center Reset)
     btnPhoneCenterReset.addEventListener('click', (e) => {
       e.stopPropagation();
-      socket.emit('request_center_reset');
+      socket.emit('request_center_reset', { slot: mySlot });
       triggerHaptic('reload');
     });
 
     // 9점 정밀 영점 다시하기
     btnPhoneRecalib.addEventListener('click', (e) => {
       e.stopPropagation();
-      socket.emit('request_recalib');
+      socket.emit('request_recalib', { slot: mySlot });
       phoneTuningPanel.style.display = 'none';
       miniStatus.textContent = '🎯 9점 영점 맞추기 진행 중';
       triggerHaptic('reload');
@@ -535,20 +578,20 @@
       e.stopPropagation();
       currentPhoneSens = Math.max(0.2, +(currentPhoneSens - 0.05).toFixed(2));
       phoneSensVal.textContent = `${currentPhoneSens.toFixed(2)}x`;
-      socket.emit('adjust_sens', { sens: currentPhoneSens });
+      socket.emit('adjust_sens', { sens: currentPhoneSens, slot: mySlot });
     });
 
     btnPhoneSensUp.addEventListener('click', (e) => {
       e.stopPropagation();
       currentPhoneSens = Math.min(2.5, +(currentPhoneSens + 0.05).toFixed(2));
       phoneSensVal.textContent = `${currentPhoneSens.toFixed(2)}x`;
-      socket.emit('adjust_sens', { sens: currentPhoneSens });
+      socket.emit('adjust_sens', { sens: currentPhoneSens, slot: mySlot });
     });
 
     // 감도 완료! 좀비전 시작 (오직 핸드폰에서만 누름!)
     btnPhoneConfirm.addEventListener('click', (e) => {
       e.stopPropagation();
-      socket.emit('confirm_start_game');
+      socket.emit('confirm_start_game', { slot: mySlot });
       phoneTuningPanel.style.display = 'none';
       miniStatus.textContent = '🧟 전투 시작! 화면 터치 = 사격';
       triggerHaptic('shoot');
@@ -567,8 +610,9 @@
       touchStartX = t.clientX;
       touchStartY = t.clientY;
 
-      // 즉시 사격 발사 & 빨간색 번쩍!
+      // 즉시 사격 발사 & 플레이어 고유 색상 번쩍!
       socket.emit('shoot', {
+        slot: mySlot,
         timestamp: Date.now(),
         yaw: currentYaw,
         pitch: currentPitch,
