@@ -73,6 +73,13 @@ io.on('connection', (socket) => {
   socket.on('weapon_change', (data) => socket.broadcast.emit('weapon_change', data));
   socket.on('game_action', (data) => socket.broadcast.emit('game_action', data));
   socket.on('sync_state', (data) => socket.broadcast.emit('sync_state', data));
+  socket.on('tuning_mode_start', (data) => socket.broadcast.emit('tuning_mode_start', data));
+  socket.on('game_started', (data) => socket.broadcast.emit('game_started', data));
+  socket.on('confirm_start_game', (data) => socket.broadcast.emit('confirm_start_game', data));
+  socket.on('request_recalib', (data) => socket.broadcast.emit('request_recalib', data));
+  socket.on('adjust_sens', (data) => socket.broadcast.emit('adjust_sens', data));
+  socket.on('change_preset', (data) => socket.broadcast.emit('change_preset', data));
+  socket.on('request_center_reset', (data) => socket.broadcast.emit('request_center_reset', data));
 
   socket.on('disconnect', () => {
     if (connectedControllers.has(socket.id)) {

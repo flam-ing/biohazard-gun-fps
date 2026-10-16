@@ -88,14 +88,162 @@
     /* 하단 미세 상태 인디케이터 (초소형) */
     #miniStatus {
       position: fixed;
-      bottom: 12px;
-      left: 50%;
-      transform: translateX(-50%);
+      top: 14px;
+      left: 16px;
       font-size: 11px;
-      color: rgba(255, 255, 255, 0.25);
+      color: rgba(255, 255, 255, 0.4);
       font-family: monospace;
       pointer-events: none;
       letter-spacing: 1px;
+      z-index: 50;
+      white-space: nowrap;
+    }
+
+    /* 게임 중에도 핸드폰에서 설정/영점 열 수 있는 초소형 버튼 */
+    #btnPhoneOpenSettings {
+      position: fixed;
+      top: 10px;
+      right: 14px;
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #94a3b8;
+      font-size: 11px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+      z-index: 60;
+      cursor: pointer;
+    }
+
+    /* 에임 검증 & 영점/감도 설정 전용 모바일 패널 (설정할 때만 표시) */
+    #phoneTuningPanel {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(10, 15, 24, 0.98);
+      border-top: 2px solid #22c55e;
+      border-radius: 24px 24px 0 0;
+      padding: 18px 18px 30px;
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 90;
+      box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.95);
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      max-height: 85vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .phone-tuning-header {
+      text-align: center;
+      color: #38bdf8;
+      font-size: 13.5px;
+      font-weight: 800;
+      line-height: 1.45;
+    }
+
+    /* 거리 프리셋 탭 */
+    .phone-preset-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .btn-phone-preset {
+      background: #0f172a;
+      border: 1px solid #334155;
+      color: #94a3b8;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 9px 4px;
+      border-radius: 10px;
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .btn-phone-preset.active {
+      background: rgba(56, 189, 248, 0.18);
+      border-color: #38bdf8;
+      color: #38bdf8;
+      font-weight: 900;
+    }
+
+    .phone-sens-box {
+      background: #020617;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .phone-sens-stepper {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn-sens-step {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #f8fafc;
+      font-size: 18px;
+      font-weight: 900;
+      width: 38px;
+      height: 38px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .phone-action-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .btn-phone-center-reset {
+      background: rgba(56, 189, 248, 0.12);
+      border: 1.5px solid #0284c7;
+      color: #7dd3fc;
+      border-radius: 12px;
+      padding: 12px 6px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .btn-phone-recalib {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1.5px solid #ef4444;
+      color: #fca5a5;
+      border-radius: 12px;
+      padding: 12px 6px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .btn-phone-start {
+      width: 100%;
+      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      padding: 16px 14px;
+      font-size: 16px;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(34, 197, 94, 0.5);
+      text-align: center;
+      letter-spacing: 0.5px;
     }
   </style>
 </head>
@@ -112,6 +260,43 @@
   </div>
 
   <div id="miniStatus">CONNECTED • GYRO ACTIVE</div>
+  <button id="btnPhoneOpenSettings">⚙️ 영점/설정</button>
+
+  <!-- [오직 핸드폰에서만 뜨는 에임/감도/영점 설정 패널] (설정할 때만 표시) -->
+  <div id="phoneTuningPanel">
+    <div class="phone-tuning-header">
+      🎯 화면 상단을 터치해 <b>시험 사격</b>해보고<br/>설정이 끝나면 맨 아래 <b>[좀비전 시작]</b>을 누르세요!
+    </div>
+
+    <!-- 거리 환경 프리셋 선택 -->
+    <div class="phone-preset-row">
+      <button class="btn-phone-preset active" data-preset="desk" id="presetDesk">💻 책상(50cm)</button>
+      <button class="btn-phone-preset" data-preset="normal" id="presetNormal">🖥️ 모니터(1m)</button>
+      <button class="btn-phone-preset" data-preset="tv" id="presetTv">📺 TV(2m+)</button>
+    </div>
+
+    <!-- 감도 조절 -->
+    <div class="phone-sens-box">
+      <div>
+        <div style="font-size: 12px; color: #94a3b8; font-weight: 700;">조준 감도</div>
+        <div style="font-size: 11px; color: #64748b;">(에임 이동 속도)</div>
+      </div>
+      <div class="phone-sens-stepper">
+        <button class="btn-sens-step" id="btnPhoneSensDown">-</button>
+        <span style="font-size: 16px; font-weight: 900; color: #22c55e; font-family: monospace; min-width: 44px; text-align: center;" id="phoneSensVal">0.75x</span>
+        <button class="btn-sens-step" id="btnPhoneSensUp">+</button>
+      </div>
+    </div>
+
+    <!-- 영점 맞추기 버튼 2개 -->
+    <div class="phone-action-grid">
+      <button class="btn-phone-center-reset" id="btnPhoneCenterReset">🎯 지금 위치를<br/>모니터 정중앙으로</button>
+      <button class="btn-phone-recalib" id="btnPhoneRecalib">🔄 9점 정밀 영점<br/>다시 맞추기</button>
+    </div>
+
+    <!-- 최종 승인 & 게임 시작 버튼 -->
+    <button class="btn-phone-start" id="btnPhoneConfirm">🧟 감도 완료! 좀비전 시작 ➔</button>
+  </div>
 
   <script>
     // iOS Safari 확대/스크롤 완전 차단
@@ -273,12 +458,109 @@
       miniStatus.textContent = 'GUN ARMED • TOUCH TO FIRE';
     });
 
+    // 에임 검증 & 시작 승인 패널 컨트롤
+    const phoneTuningPanel = document.getElementById('phoneTuningPanel');
+    const btnPhoneConfirm = document.getElementById('btnPhoneConfirm');
+    const btnPhoneRecalib = document.getElementById('btnPhoneRecalib');
+    const btnPhoneCenterReset = document.getElementById('btnPhoneCenterReset');
+    const btnPhoneSensDown = document.getElementById('btnPhoneSensDown');
+    const btnPhoneSensUp = document.getElementById('btnPhoneSensUp');
+    const phoneSensVal = document.getElementById('phoneSensVal');
+    const btnPhoneOpenSettings = document.getElementById('btnPhoneOpenSettings');
+
+    let currentPhoneSens = 0.75;
+
+    // 핸드폰 상단 [⚙️ 영점/설정] 버튼으로 언제든 열기
+    btnPhoneOpenSettings.addEventListener('click', (e) => {
+      e.stopPropagation();
+      phoneTuningPanel.style.display = 'flex';
+      miniStatus.textContent = '⚙️ 에임/영점 설정 중';
+      socket.emit('tuning_mode_start');
+      triggerHaptic('reload');
+    });
+
+    socket.on('tuning_mode_start', (data) => {
+      phoneTuningPanel.style.display = 'flex';
+      miniStatus.textContent = '🎯 에임 체험 모드 (아래에서 [시작] 터치)';
+      if (data && data.sens) {
+        currentPhoneSens = data.sens;
+        phoneSensVal.textContent = `${currentPhoneSens.toFixed(2)}x`;
+      }
+      triggerHaptic('reload');
+    });
+
+    socket.on('game_started', () => {
+      phoneTuningPanel.style.display = 'none';
+      miniStatus.textContent = '🧟 전투 진행 중 • 화면 터치 = 사격';
+      triggerHaptic('shoot');
+    });
+
+    socket.on('sync_sens', (data) => {
+      if (data && typeof data.sens === 'number') {
+        currentPhoneSens = data.sens;
+        phoneSensVal.textContent = `${currentPhoneSens.toFixed(2)}x`;
+      }
+    });
+
+    // 거리 프리셋 버튼 탭
+    document.querySelectorAll('.btn-phone-preset').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const preset = btn.getAttribute('data-preset');
+        document.querySelectorAll('.btn-phone-preset').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        socket.emit('change_preset', { preset });
+        triggerHaptic('shoot');
+      });
+    });
+
+    // 지금 겨눈 곳을 정중앙으로 (Center Reset)
+    btnPhoneCenterReset.addEventListener('click', (e) => {
+      e.stopPropagation();
+      socket.emit('request_center_reset');
+      triggerHaptic('reload');
+    });
+
+    // 9점 정밀 영점 다시하기
+    btnPhoneRecalib.addEventListener('click', (e) => {
+      e.stopPropagation();
+      socket.emit('request_recalib');
+      phoneTuningPanel.style.display = 'none';
+      miniStatus.textContent = '🎯 9점 영점 맞추기 진행 중';
+      triggerHaptic('reload');
+    });
+
+    // 조준 감도 업/다운
+    btnPhoneSensDown.addEventListener('click', (e) => {
+      e.stopPropagation();
+      currentPhoneSens = Math.max(0.2, +(currentPhoneSens - 0.05).toFixed(2));
+      phoneSensVal.textContent = `${currentPhoneSens.toFixed(2)}x`;
+      socket.emit('adjust_sens', { sens: currentPhoneSens });
+    });
+
+    btnPhoneSensUp.addEventListener('click', (e) => {
+      e.stopPropagation();
+      currentPhoneSens = Math.min(2.5, +(currentPhoneSens + 0.05).toFixed(2));
+      phoneSensVal.textContent = `${currentPhoneSens.toFixed(2)}x`;
+      socket.emit('adjust_sens', { sens: currentPhoneSens });
+    });
+
+    // 감도 완료! 좀비전 시작 (오직 핸드폰에서만 누름!)
+    btnPhoneConfirm.addEventListener('click', (e) => {
+      e.stopPropagation();
+      socket.emit('confirm_start_game');
+      phoneTuningPanel.style.display = 'none';
+      miniStatus.textContent = '🧟 전투 시작! 화면 터치 = 사격';
+      triggerHaptic('shoot');
+    });
+
     // 화면 터치 사격 (터치 시 빨간색 깜빡) & 스와이프 장전
     let touchStartY = 0;
     let touchStartX = 0;
 
     window.addEventListener('touchstart', (e) => {
       if (startOverlay.style.display !== 'none') return;
+      if (e.target.closest('#phoneTuningPanel')) return; // 패널 조작 시 사격 방지
       if (e.cancelable) e.preventDefault();
 
       const t = e.touches[0];
@@ -299,6 +581,7 @@
 
     window.addEventListener('touchmove', (e) => {
       if (startOverlay.style.display !== 'none') return;
+      if (e.target.closest('#phoneTuningPanel')) return;
       if (e.cancelable) e.preventDefault();
       const t = e.touches[0];
       const dy = t.clientY - touchStartY;

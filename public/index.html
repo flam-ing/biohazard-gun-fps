@@ -677,199 +677,6 @@
       box-shadow: 0 0 14px rgba(56, 189, 248, 0.3);
     }
 
-    /* 실시간 에임 검증 & 감도 튜닝 전용 HUD (배경 100% 투명 -> 실제 3D 복도 노출, 좀비 없음) */
-    #aimTuningHUD {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: 85;
-      display: none;
-      flex-direction: column;
-      justify-content: space-between;
-      align-items: center;
-      padding: 30px 24px 28px;
-    }
-
-    .tuning-top-banner {
-      pointer-events: auto;
-      background: rgba(11, 16, 26, 0.92);
-      border: 2px solid #38bdf8;
-      border-radius: 18px;
-      padding: 14px 28px;
-      text-align: center;
-      box-shadow: 0 10px 35px rgba(56, 189, 248, 0.3);
-      max-width: 780px;
-      width: 100%;
-      animation: bannerFloat 3s ease-in-out infinite alternate;
-    }
-    @keyframes bannerFloat {
-      0% { transform: translateY(0); }
-      100% { transform: translateY(-4px); }
-    }
-
-    .tuning-top-title {
-      font-size: 22px;
-      font-weight: 900;
-      color: #38bdf8;
-      letter-spacing: 1px;
-      margin-bottom: 4px;
-    }
-
-    .tuning-top-desc {
-      font-size: 13.5px;
-      color: #cbd5e1;
-      line-height: 1.5;
-    }
-
-    .tuning-dock {
-      pointer-events: auto;
-      background: rgba(10, 15, 24, 0.95);
-      border: 2px solid #22c55e;
-      border-radius: 24px;
-      padding: 20px 28px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9), 0 0 35px rgba(34, 197, 94, 0.35);
-      max-width: 920px;
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    .tuning-controls-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-    }
-
-    .tuning-card {
-      background: rgba(2, 6, 15, 0.7);
-      border: 1px solid #1e293b;
-      border-radius: 14px;
-      padding: 12px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .tuning-card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 13px;
-      font-weight: 800;
-      color: #94a3b8;
-    }
-
-    .tuning-card-val {
-      font-size: 16px;
-      font-weight: 900;
-      color: #22c55e;
-      font-family: monospace;
-    }
-
-    .tuning-slider-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .tuning-step-btn {
-      background: #1e293b;
-      border: 1px solid #334155;
-      color: #f8fafc;
-      font-size: 15px;
-      font-weight: 900;
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      cursor: pointer;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      user-select: none;
-      transition: all 0.1s;
-    }
-    .tuning-step-btn:hover {
-      background: #334155;
-      border-color: #475569;
-    }
-    .tuning-step-btn:active {
-      transform: scale(0.92);
-    }
-
-    .tuning-range-input {
-      flex: 1;
-      accent-color: #22c55e;
-      cursor: pointer;
-      height: 6px;
-    }
-
-    .tuning-actions-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 14px;
-      padding-top: 6px;
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    .btn-center-reset {
-      background: rgba(56, 189, 248, 0.15);
-      border: 1.5px solid #38bdf8;
-      color: #7dd3fc;
-      border-radius: 12px;
-      padding: 10px 18px;
-      font-size: 13.5px;
-      font-weight: 800;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.15s;
-    }
-    .btn-center-reset:hover {
-      background: rgba(56, 189, 248, 0.28);
-      color: #fff;
-    }
-
-    .btn-recalib {
-      background: rgba(239, 68, 68, 0.18);
-      border: 1.5px solid #ef4444;
-      color: #fca5a5;
-      border-radius: 12px;
-      padding: 12px 20px;
-      font-size: 14px;
-      font-weight: 800;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .btn-recalib:hover {
-      background: rgba(239, 68, 68, 0.32);
-      color: #fff;
-    }
-
-    .btn-start-battle {
-      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-      border: none;
-      color: #fff;
-      border-radius: 14px;
-      padding: 14px 28px;
-      font-size: 16px;
-      font-weight: 900;
-      cursor: pointer;
-      box-shadow: 0 8px 24px rgba(34, 197, 94, 0.45);
-      transition: all 0.15s;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .btn-start-battle:hover {
-      filter: brightness(1.1);
-      transform: translateY(-1px);
-    }
-    .btn-start-battle:active {
-      transform: scale(0.98);
-    }
   </style>
 </head>
 <body>
@@ -913,9 +720,13 @@
     </div>
   </div>
 
-  <button class="qr-toggle-btn" id="btnToggleLobby">📱 아이폰 QR 연결 창 열기 (ESC)</button>
-  <button class="qr-toggle-btn" id="btnQuickCalibStart" style="left: 275px; border-color: #ef4444; color: #fca5a5;">🎯 1초 중앙 영점 & 거리 조절 (C)</button>
-  <button class="qr-toggle-btn" id="btnCalibStart" style="left: 510px; border-color: #38bdf8; color: #38bdf8; font-size: 11px;">🎯 9점 정밀 과녁 (선택)</button>
+  <button class="qr-toggle-btn" id="btnToggleLobby">📱 QR 연결 (ESC)</button>
+  <button class="qr-toggle-btn" id="btnCalibStart" style="left: 170px; border: 2px solid #ef4444; color: #fff; background: rgba(220, 38, 38, 0.4); font-weight: 900; font-size: 13.5px; box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);">
+    🎯 9점 영점 다시 맞추기 (단축키: C)
+  </button>
+  <button class="qr-toggle-btn" id="btnQuickCalibStart" style="left: 470px; border-color: #38bdf8; color: #7dd3fc; font-size: 12px;">
+    ⚡ 1초 중앙 영점 (1)
+  </button>
 
   <!-- 초간단 1초 중앙 영점 & 환경 프리셋 오버레이 -->
   <div id="quickCalibOverlay">
@@ -978,73 +789,14 @@
     </div>
   </div>
 
-  <!-- 에임 검증 & 실시간 감도 튜닝 전용 HUD (배경 100% 투명 -> 실제 3D 복도 노출, 좀비 없음!) -->
-  <div id="aimTuningHUD">
-    <div class="tuning-top-banner">
-      <div class="tuning-top-title">🎯 에임 검증 & 실시간 감도 튜닝 모드 (좀비 없음)</div>
-      <div class="tuning-top-desc">
-        아이폰을 움직여 <b>빨간색 조준선(크로스헤어)</b>이 모니터 안에서 안정적으로 잘 따라오는지 확인하세요.<br/>
-        아이폰 화면을 탭하면 <b>시험 사격(총소리 & 화면 탄흔)</b>이 가능합니다!
-      </div>
+  <!-- 에임 검증 & 튜닝 안내 배너 (모니터에는 마우스 조작 버튼 없이 순수 안내만 표시) -->
+  <div id="aimHoverNotice" style="position: fixed; top: 90px; left: 50%; transform: translateX(-50%); background: rgba(10, 15, 24, 0.94); border: 2px solid #22c55e; border-radius: 20px; padding: 18px 36px; text-align: center; color: #fff; z-index: 50; display: none; box-shadow: 0 0 40px rgba(34, 197, 94, 0.35); pointer-events: none;">
+    <div style="font-size: 22px; font-weight: 900; color: #22c55e; margin-bottom: 6px; letter-spacing: 1px;">
+      🎯 에임 체험 & 감도 튜닝 중 (좀비 없음)
     </div>
-
-    <div class="tuning-dock">
-      <!-- 환경 프리셋 빠른 전환 바 -->
-      <div class="preset-row">
-        <span class="preset-label">📏 거리 프리셋:</span>
-        <button class="preset-tab-btn active" id="dockPresetDesk" data-preset="desk">
-          💻 책상/노트북 (가까움 50cm, 안정적)
-        </button>
-        <button class="preset-tab-btn" id="dockPresetNormal" data-preset="normal">
-          🖥️ 일반 모니터 (1m 거리)
-        </button>
-        <button class="preset-tab-btn" id="dockPresetTv" data-preset="tv">
-          📺 거실/TV (2m 이상)
-        </button>
-      </div>
-
-      <div class="tuning-controls-grid">
-        <!-- 좌우 수평 감도 -->
-        <div class="tuning-card">
-          <div class="tuning-card-header">
-            <span>↔️ 좌우(수평) 조준 감도</span>
-            <span class="tuning-card-val" id="valSensX">0.75x</span>
-          </div>
-          <div class="tuning-slider-row">
-            <button class="tuning-step-btn" id="btnSensXDown">-</button>
-            <input type="range" id="sliderSensX" class="tuning-range-input" min="0.2" max="2.5" step="0.05" value="0.75">
-            <button class="tuning-step-btn" id="btnSensXUp">+</button>
-          </div>
-        </div>
-
-        <!-- 상하 수직 감도 -->
-        <div class="tuning-card">
-          <div class="tuning-card-header">
-            <span>↕️ 상하(수직) 조준 감도</span>
-            <span class="tuning-card-val" id="valSensY">0.75x</span>
-          </div>
-          <div class="tuning-slider-row">
-            <button class="tuning-step-btn" id="btnSensYDown">-</button>
-            <input type="range" id="sliderSensY" class="tuning-range-input" min="0.2" max="2.5" step="0.05" value="0.75">
-            <button class="tuning-step-btn" id="btnSensYUp">+</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="tuning-actions-row">
-        <button class="btn-center-reset" id="btnCenterReset">
-          🎯 지금 겨눈 곳을 정중앙으로 (Center Reset)
-        </button>
-
-        <div style="display: flex; gap: 12px;">
-          <button class="btn-recalib" id="btnRestartCalib">
-            🔄 중앙 영점 다시 맞추기
-          </button>
-          <button class="btn-start-battle" id="btnConfirmStartGame">
-            🧟 감도 완료! 좀비전 시작 ➔
-          </button>
-        </div>
-      </div>
+    <div style="font-size: 15px; color: #cbd5e1; line-height: 1.6;">
+      모니터 구석구석을 겨누고 폰을 탭해 <b>시험 사격</b>해 보세요.<br/>
+      <b style="color: #4ade80;">📱 핸드폰 화면에서 거리/감도를 맞춘 후 [좀비전 시작]을 누르면 즉시 시작됩니다!</b>
     </div>
   </div>
 
@@ -1273,6 +1025,42 @@
         gain.connect(audioCtx.destination);
         osc.start(now);
         osc.stop(now + 0.3);
+      } else if (type === 'drop') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(160, now);
+        osc.frequency.exponentialRampToValueAtTime(35, now + 0.25);
+        gain.gain.setValueAtTime(0.5, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.25);
+      } else if (type === 'spit') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(540, now);
+        osc.frequency.linearRampToValueAtTime(220, now + 0.18);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.18);
+      } else if (type === 'spit_pop') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(700, now);
+        osc.frequency.exponentialRampToValueAtTime(1400, now + 0.08);
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.08);
       }
     }
 
@@ -1517,75 +1305,164 @@
     // =========================================================================
     // 3D 좀비 생성 및 AI/부위별 피격(Headshot / Bodyshot) 시스템
     // =========================================================================
+    // =========================================================================
+    // 3D 몬스터 4종 다양화 (천장 크롤러, 독액 스피터, 와리가리 러너, 거대 브루트)
+    // =========================================================================
     const zombies = [];
     const bloodParticles = [];
+    const acidProjectiles = [];
+
+    // 산성 침 투사체 스폰 (스피터가 플레이어를 향해 발사)
+    function spawnAcidSpit(startPos) {
+      const geo = new THREE.DodecahedronGeometry(0.24);
+      const mat = new THREE.MeshStandardMaterial({
+        color: 0x22c55e,
+        emissive: 0x4ade80,
+        emissiveIntensity: 0.8,
+        roughness: 0.2
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.copy(startPos);
+      mesh.position.y += 0.4;
+      mesh.userData = { isAcidSpit: true, rootObj: mesh };
+
+      const light = new THREE.PointLight(0x4ade80, 2.0, 5);
+      mesh.add(light);
+      scene.add(mesh);
+
+      const target = new THREE.Vector3(0, 1.5, 4.2);
+      const vel = target.clone().sub(startPos).normalize().multiplyScalar(6.8);
+
+      acidProjectiles.push({ mesh, vel, life: 4.5 });
+      playSound('spit');
+      showBanner('⚠️ 산성 독액 날아옴! 총으로 요격하세요!', '#4ade80');
+    }
 
     function createZombie(type = 'walker') {
       const group = new THREE.Group();
       const isRunner = type === 'runner';
       const isBrute = type === 'brute';
+      const isCrawler = type === 'crawler';
+      const isSpitter = type === 'spitter';
 
-      const scale = isBrute ? 1.42 : isRunner ? 0.96 : 1.0;
+      const scale = isBrute ? 1.55 : isRunner ? 0.95 : isCrawler ? 0.92 : 1.05;
       group.scale.set(scale, scale, scale);
 
-      const skinColor = isRunner ? 0x8f2424 : isBrute ? 0x3b4d3b : 0x526352;
-      const clothesColor = isRunner ? 0x2b1111 : isBrute ? 0x1e293b : 0x27303f;
+      // 피부/의상 테마
+      const skinColor = isCrawler ? 0x991b1b : isSpitter ? 0x166534 : isRunner ? 0x7f1d1d : isBrute ? 0x334155 : 0x475569;
+      const skinMat = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.8 });
+      const clothesMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 });
 
-      const skinMat = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.85 });
-      const clothesMat = new THREE.MeshStandardMaterial({ color: clothesColor, roughness: 0.9 });
+      let torso, headGroup, headMesh;
+      let leftArm, rightArm, leftLeg, rightLeg;
 
-      // 몸통 (Body Hitbox)
-      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.92, 0.36), clothesMat);
-      torso.position.y = 1.15;
-      torso.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
-      group.add(torso);
+      if (isCrawler) {
+        // [1] 천장 기습 크롤러 (납작한 4족 보행 에일리언 형태)
+        torso = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.32, 1.1), skinMat);
+        torso.position.y = 0.22;
+        torso.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
+        group.add(torso);
 
-      // 머리 (Headshot Hitbox!)
-      const headGroup = new THREE.Group();
-      headGroup.position.set(0, 1.82, 0.04);
+        headGroup = new THREE.Group();
+        headGroup.position.set(0, 0.35, 0.65);
+        headMesh = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.32, 0.38), skinMat);
+        headMesh.userData = { isZombiePart: true, isHead: true, zombieRoot: group };
+        headGroup.add(headMesh);
 
-      const headMesh = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.44, 0.42), skinMat);
-      headMesh.userData = { isZombiePart: true, isHead: true, zombieRoot: group };
-      headGroup.add(headMesh);
+        const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0055 });
+        const eye1 = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.05, 0.06), eyeMat);
+        eye1.position.set(-0.1, 0.05, 0.19);
+        const eye2 = eye1.clone();
+        eye2.position.x = 0.1;
+        headGroup.add(eye1, eye2);
+        group.add(headGroup);
 
-      // 붉게 빛나는 좀비 안구
-      const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff1744 });
-      const leftEye = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.04, 0.05), eyeMat);
-      leftEye.position.set(-0.09, 0.04, 0.21);
-      const rightEye = leftEye.clone();
-      rightEye.position.x = 0.09;
-      headGroup.add(leftEye, rightEye);
+        // 4개의 갈퀴 다리
+        const crawlLegGeo = new THREE.BoxGeometry(0.16, 0.65, 0.16);
+        leftArm = new THREE.Mesh(crawlLegGeo, skinMat);
+        leftArm.position.set(-0.45, 0.1, 0.4);
+        leftArm.rotation.z = 0.45;
+        leftArm.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
 
-      group.add(headGroup);
+        rightArm = new THREE.Mesh(crawlLegGeo, skinMat);
+        rightArm.position.set(0.45, 0.1, 0.4);
+        rightArm.rotation.z = -0.45;
+        rightArm.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
 
-      // 앞으로 뻗은 두 팔
-      const armGeo = new THREE.BoxGeometry(0.2, 0.75, 0.2);
-      const leftArm = new THREE.Mesh(armGeo, skinMat);
-      leftArm.position.set(-0.46, 1.32, 0.28);
-      leftArm.rotation.x = -Math.PI / 2.3;
-      leftArm.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
+        leftLeg = new THREE.Mesh(crawlLegGeo, skinMat);
+        leftLeg.position.set(-0.45, 0.1, -0.4);
+        leftLeg.rotation.z = 0.45;
+        leftLeg.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
 
-      const rightArm = new THREE.Mesh(armGeo, skinMat);
-      rightArm.position.set(0.46, 1.32, 0.28);
-      rightArm.rotation.x = -Math.PI / 2.3;
-      rightArm.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
-      group.add(leftArm, rightArm);
+        rightLeg = new THREE.Mesh(crawlLegGeo, skinMat);
+        rightLeg.position.set(0.45, 0.1, -0.4);
+        rightLeg.rotation.z = -0.45;
+        rightLeg.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
 
-      // 두 다리
-      const legGeo = new THREE.BoxGeometry(0.25, 0.72, 0.25);
-      const leftLeg = new THREE.Mesh(legGeo, clothesMat);
-      leftLeg.position.set(-0.18, 0.36, 0);
-      const rightLeg = new THREE.Mesh(legGeo, clothesMat);
-      rightLeg.position.set(0.18, 0.36, 0);
-      group.add(leftLeg, rightLeg);
+        group.add(leftArm, rightArm, leftLeg, rightLeg);
+      } else {
+        // [2] 2족 보행 좀비 (워커, 러너, 스피터, 거대 브루트)
+        torso = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.92, 0.36), clothesMat);
+        torso.position.y = 1.15;
+        torso.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
+        group.add(torso);
 
-      // 스폰 위치 (복도 저편 안개 속)
-      const spawnX = (Math.random() - 0.5) * 7.2;
-      const spawnZ = -22 - Math.random() * 10;
-      group.position.set(spawnX, 0, spawnZ);
+        // 스피터는 등에 산성 포낭 돌기 부착
+        if (isSpitter) {
+          const sacMat = new THREE.MeshStandardMaterial({ color: 0x4ade80, emissive: 0x22c55e, emissiveIntensity: 0.7 });
+          const sac1 = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), sacMat);
+          sac1.position.set(-0.18, 1.45, -0.22);
+          const sac2 = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 8), sacMat);
+          sac2.position.set(0.15, 1.35, -0.24);
+          group.add(sac1, sac2);
+        }
 
-      const maxHp = isBrute ? 220 : isRunner ? 65 : 95;
-      const speed = isBrute ? 1.55 : isRunner ? 3.85 : 2.15 + Math.random() * 0.5;
+        headGroup = new THREE.Group();
+        headGroup.position.set(0, 1.82, 0.04);
+        headMesh = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.44, 0.42), skinMat);
+        headMesh.userData = { isZombiePart: true, isHead: true, zombieRoot: group };
+        headGroup.add(headMesh);
+
+        const eyeMat = new THREE.MeshBasicMaterial({ color: isSpitter ? 0x22c55e : 0xff1744 });
+        const leftEye = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.04, 0.05), eyeMat);
+        leftEye.position.set(-0.09, 0.04, 0.21);
+        const rightEye = leftEye.clone();
+        rightEye.position.x = 0.09;
+        headGroup.add(leftEye, rightEye);
+        group.add(headGroup);
+
+        const armGeo = new THREE.BoxGeometry(0.2, 0.75, 0.2);
+        leftArm = new THREE.Mesh(armGeo, skinMat);
+        leftArm.position.set(-0.46, 1.32, 0.28);
+        leftArm.rotation.x = -Math.PI / 2.3;
+        leftArm.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
+
+        rightArm = new THREE.Mesh(armGeo, skinMat);
+        rightArm.position.set(0.46, 1.32, 0.28);
+        rightArm.rotation.x = -Math.PI / 2.3;
+        rightArm.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
+        group.add(leftArm, rightArm);
+
+        const legGeo = new THREE.BoxGeometry(0.25, 0.72, 0.25);
+        leftLeg = new THREE.Mesh(legGeo, clothesMat);
+        leftLeg.position.set(-0.18, 0.36, 0);
+        rightLeg = new THREE.Mesh(legGeo, clothesMat);
+        rightLeg.position.set(0.18, 0.36, 0);
+        group.add(leftLeg, rightLeg);
+      }
+
+      // 스폰 위치 및 파라미터 세팅
+      const spawnX = (Math.random() - 0.5) * 6.5;
+      const spawnZ = -22 - Math.random() * 9;
+      const spawnY = isCrawler ? 4.15 : 0; // 크롤러는 천장에서 스폰!
+
+      group.position.set(spawnX, spawnY, spawnZ);
+      if (isCrawler) {
+        group.rotation.x = Math.PI; // 천장에 거꾸로 매달림
+      }
+
+      const maxHp = isBrute ? 260 : isSpitter ? 85 : isRunner ? 65 : isCrawler ? 75 : 100;
+      const speed = isCrawler ? 4.2 : isRunner ? 4.8 : isBrute ? 1.45 : isSpitter ? 2.1 : 2.25 + Math.random() * 0.4;
 
       const zombieData = {
         group,
@@ -1599,11 +1476,14 @@
         hp: maxHp,
         maxHp,
         speed,
+        baseSpawnX: spawnX,
         walkPhase: Math.random() * Math.PI * 2,
         hitStagger: 0,
         dead: false,
         deathProgress: 0,
-        attackCooldown: 0
+        attackCooldown: 0,
+        isDropped: false, // 크롤러 천장 착지 여부
+        spitTimer: 1.8 // 스피터 투사체 쿨타임
       };
 
       group.userData.zombie = zombieData;
@@ -1627,15 +1507,15 @@
       }
     }
 
-    // 웨이브 스폰 관리
+    // 웨이브 스폰 관리 (괴물 종류 조합)
     let zombiesToSpawnInWave = 5;
     let spawnTimer = 0;
 
     function startWave(waveNum) {
       wave = waveNum;
       hudWave.textContent = wave;
-      zombiesToSpawnInWave = 4 + wave * 3;
-      showBanner(`🧟 WAVE ${wave} APPROACHING!`, '#ef4444');
+      zombiesToSpawnInWave = 5 + wave * 3;
+      showBanner(`🧟 WAVE ${wave} - 생존 구역 방어 시작!`, '#ef4444');
     }
 
     // =========================================================================
@@ -1669,7 +1549,7 @@
         crosshair.style.transform = `translate(-50%, -50%) rotate(${gunRollDeg}deg) scale(1)`;
       }, 80);
 
-      // 피격 판정 대상 메쉬 수집
+      // 피격 판정 대상 메쉬 수집 (좀비 + 날아오는 산성 독액 구체!)
       const hitMeshes = [];
       zombies.forEach((z) => {
         if (!z.dead) {
@@ -1679,6 +1559,9 @@
             }
           });
         }
+      });
+      acidProjectiles.forEach((p) => {
+        hitMeshes.push(p.mesh);
       });
 
       let hitAny = false;
@@ -1695,9 +1578,25 @@
         if (intersects.length > 0) {
           hitAny = true;
           const hit = intersects[0];
+
+          // 산성액 공중 격추!
+          if (hit.object.userData.isAcidSpit) {
+            const idx = acidProjectiles.findIndex((p) => p.mesh === hit.object);
+            if (idx !== -1) {
+              scene.remove(hit.object);
+              acidProjectiles.splice(idx, 1);
+            }
+            spawnBloodBurst(hit.point, 16);
+            playSound('spit_pop');
+            showBanner('💥 독액 요격 성공! (+150)', '#4ade80');
+            score += 150;
+            hudScore.textContent = score.toLocaleString();
+            continue;
+          }
+
           const isHead = hit.object.userData.isHead;
           const zRoot = hit.object.userData.zombieRoot;
-          const zombie = zRoot.userData.zombie;
+          const zombie = zRoot ? zRoot.userData.zombie : null;
 
           if (zombie && !zombie.dead) {
             const dmg = weapon.damage * (isHead ? weapon.headMultiplier : 1.0);
@@ -1765,24 +1664,13 @@
     const btnCalibStart = document.getElementById('btnCalibStart');
     const btnSwitchTo9Point = document.getElementById('btnSwitchTo9Point');
 
-    // 에임 검증 & 감도 튜닝 전용 HUD 요소
-    const aimTuningHUD = document.getElementById('aimTuningHUD');
-    const sliderSensX = document.getElementById('sliderSensX');
-    const sliderSensY = document.getElementById('sliderSensY');
-    const valSensX = document.getElementById('valSensX');
-    const valSensY = document.getElementById('valSensY');
-    const btnSensXDown = document.getElementById('btnSensXDown');
-    const btnSensXUp = document.getElementById('btnSensXUp');
-    const btnSensYDown = document.getElementById('btnSensYDown');
-    const btnSensYUp = document.getElementById('btnSensYUp');
-    const btnCenterReset = document.getElementById('btnCenterReset');
-    const btnRestartCalib = document.getElementById('btnRestartCalib');
-    const btnConfirmStartGame = document.getElementById('btnConfirmStartGame');
+    // 에임 검증 & 감도 튜닝 전용 안내 요소 (PC 화면에는 마우스 조작 버튼 없이 순수 안내만)
+    const aimHoverNotice = document.getElementById('aimHoverNotice');
 
     // 플레이 환경별 화각 및 감도 프리셋 (작은 모니터/가까운 책상 환경 완벽 대응!)
     const PRESETS = {
       desk: {
-        name: '책상/노트북 (가까움 50cm, 작은 모니터)',
+        name: '책상/노트북 (가까움 50cm, 안정적)',
         yawHalfSpan: 42,
         pitchHalfSpan: 26,
         defaultSens: 0.75
@@ -1842,85 +1730,6 @@
       monitorCalib.pitchHalfSpan = p.pitchHalfSpan;
       sensX = p.defaultSens;
       sensY = p.defaultSens;
-      updateSensDisplay();
-
-      // 버튼 active 클래스 동기화
-      document.querySelectorAll('[data-preset]').forEach((btn) => {
-        btn.classList.toggle('active', btn.getAttribute('data-preset') === key);
-      });
-    }
-
-    // 프리셋 버튼 리스너
-    document.querySelectorAll('[data-preset]').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const key = btn.getAttribute('data-preset');
-        applyPreset(key);
-        showBanner(`📏 환경 변경: ${PRESETS[key].name}`, '#38bdf8');
-      });
-    });
-
-    function updateSensDisplay() {
-      if (valSensX) valSensX.textContent = `${sensX.toFixed(2)}x`;
-      if (valSensY) valSensY.textContent = `${sensY.toFixed(2)}x`;
-      if (sliderSensX) sliderSensX.value = sensX;
-      if (sliderSensY) sliderSensY.value = sensY;
-    }
-
-    if (sliderSensX) {
-      sliderSensX.addEventListener('input', (e) => {
-        sensX = parseFloat(e.target.value);
-        updateSensDisplay();
-      });
-    }
-    if (sliderSensY) {
-      sliderSensY.addEventListener('input', (e) => {
-        sensY = parseFloat(e.target.value);
-        updateSensDisplay();
-      });
-    }
-
-    if (btnSensXDown) {
-      btnSensXDown.addEventListener('click', (e) => {
-        e.stopPropagation();
-        sensX = Math.max(0.2, +(sensX - 0.05).toFixed(2));
-        updateSensDisplay();
-      });
-    }
-    if (btnSensXUp) {
-      btnSensXUp.addEventListener('click', (e) => {
-        e.stopPropagation();
-        sensX = Math.min(2.5, +(sensX + 0.05).toFixed(2));
-        updateSensDisplay();
-      });
-    }
-    if (btnSensYDown) {
-      btnSensYDown.addEventListener('click', (e) => {
-        e.stopPropagation();
-        sensY = Math.max(0.2, +(sensY - 0.05).toFixed(2));
-        updateSensDisplay();
-      });
-    }
-    if (btnSensYUp) {
-      btnSensYUp.addEventListener('click', (e) => {
-        e.stopPropagation();
-        sensY = Math.min(2.5, +(sensY + 0.05).toFixed(2));
-        updateSensDisplay();
-      });
-    }
-
-    if (btnCenterReset) {
-      btnCenterReset.addEventListener('click', (e) => {
-        e.stopPropagation();
-        monitorCalib.centerYaw = lastAimYaw;
-        monitorCalib.centerPitch = lastAimPitch;
-        targetAimX = 0;
-        targetAimY = 0;
-        smoothAimX = 0;
-        smoothAimY = 0;
-        playSound('reload');
-        showBanner('🎯 현재 폰 위치를 모니터 정중앙으로 리셋했습니다!', '#38bdf8');
-      });
     }
 
     function createBulletHole(screenX, screenY) {
@@ -1939,12 +1748,13 @@
     // [초간단 1초 영점 조절 열기 (기본 방식)]
     function openQuickCalibration() {
       ensureAudio();
+      gameActive = false;
       isQuickCalibrating = true;
       isCalibrating = false;
       isVerifyingAim = false;
       lobbyModal.style.display = 'none';
       calibOverlay.style.display = 'none';
-      aimTuningHUD.style.display = 'none';
+      if (aimHoverNotice) aimHoverNotice.style.display = 'none';
       quickCalibOverlay.style.display = 'flex';
       playSound('empty');
     }
@@ -1961,17 +1771,18 @@
       smoothAimX = 0;
       smoothAimY = 0;
 
-      // 실제 3D 화면 위에서 에임 검증 & 감도 튜닝 모드 즉시 진입!
+      // 실제 3D 화면 위에서 에임 검증 & 감도 튜닝 모드 진입 (핸드폰에만 조작 패널 표시!)
       isVerifyingAim = true;
-      aimTuningHUD.style.display = 'flex';
-      updateSensDisplay();
+      if (aimHoverNotice) aimHoverNotice.style.display = 'block';
       playSound('reload');
-      showBanner('🎯 중앙 영점 설정 완료! 에임이 잘 맞는지 겨눠보세요!', '#38bdf8');
+      showBanner('🎯 중앙 영점 설정 완료! 핸드폰에서 감도/거리 맞춘 후 [시작]을 터치하세요!', '#38bdf8');
+      socket.emit('tuning_mode_start', { sens: sensX, preset: currentPresetKey });
     }
 
-    // [정밀 9점 영점 조절 열기 (선택 옵션)]
+    // [정밀 9점 영점 조절 열기 (상단 버튼 및 핸드폰 요청)]
     function openCalibration() {
       ensureAudio();
+      gameActive = false;
       isCalibrating = true;
       isQuickCalibrating = false;
       isVerifyingAim = false;
@@ -1979,9 +1790,9 @@
       recordedPoints = [];
       lobbyModal.style.display = 'none';
       quickCalibOverlay.style.display = 'none';
+      if (aimHoverNotice) aimHoverNotice.style.display = 'none';
       calibOverlay.style.display = 'block';
       calibTarget.style.display = 'flex';
-      aimTuningHUD.style.display = 'none';
       updateTargetPosition();
       playSound('empty');
     }
@@ -2033,30 +1844,13 @@
         pitchHalfSpan: Math.abs(calcHalfPitch) || 22
       };
 
+      // 9점 보정 완료 후 에임 검증 모드 진입 (핸드폰에만 확인 패널 오픈!)
       isVerifyingAim = true;
-      aimTuningHUD.style.display = 'flex';
-      updateSensDisplay();
+      if (aimHoverNotice) aimHoverNotice.style.display = 'block';
       playSound('reload');
-      showBanner('🎯 9점 캘리브레이션 완료! 실제 에임을 확인해 보세요!', '#38bdf8');
+      showBanner('🎯 9점 영점 완료! 핸드폰에서 [좀비전 시작]을 터치하세요!', '#38bdf8');
+      socket.emit('tuning_mode_start', { sens: sensX, preset: currentPresetKey });
       return true;
-    }
-
-    if (btnConfirmStartGame) {
-      btnConfirmStartGame.addEventListener('click', (e) => {
-        e.stopPropagation();
-        calibOverlay.style.display = 'none';
-        quickCalibOverlay.style.display = 'none';
-        aimTuningHUD.style.display = 'none';
-        isVerifyingAim = false;
-        startGame();
-      });
-    }
-
-    if (btnRestartCalib) {
-      btnRestartCalib.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openQuickCalibration();
-      });
     }
 
     if (btnQuickCalibStart) {
@@ -2101,7 +1895,7 @@
       } else {
         isPhoneAiming = false;
         hudConnDot.classList.remove('online');
-        hudConnText.textContent = `아이폰 연결 대기 중 (마우스 조작 가능)`;
+        hudConnText.textContent = `아이폰 연결 대기 중 (QR 코드로 연결)`;
       }
     });
 
@@ -2129,6 +1923,47 @@
       smoothAimY = 0;
       gunRollDeg = 0;
       showBanner('🎯 중앙 영점 리셋 완료!', '#38bdf8');
+    });
+
+    // [핸드폰 전용 조작 리스너들]
+    // 1. 핸드폰에서 [감도 완료! 좀비전 시작] 눌렀을 때
+    socket.on('confirm_start_game', () => {
+      if (aimHoverNotice) aimHoverNotice.style.display = 'none';
+      startGame();
+    });
+
+    // 2. 핸드폰에서 [9점 영점 다시 맞추기] 눌렀을 때
+    socket.on('request_recalib', () => {
+      openCalibration();
+    });
+
+    // 3. 핸드폰에서 [지금 위치를 모니터 정중앙으로] 눌렀을 때
+    socket.on('request_center_reset', () => {
+      monitorCalib.centerYaw = lastAimYaw;
+      monitorCalib.centerPitch = lastAimPitch;
+      targetAimX = 0;
+      targetAimY = 0;
+      smoothAimX = 0;
+      smoothAimY = 0;
+      playSound('reload');
+      showBanner('🎯 스마트폰 위치를 모니터 정중앙으로 리셋 완료!', '#38bdf8');
+    });
+
+    // 4. 핸드폰에서 거리 환경 프리셋 변경 시
+    socket.on('change_preset', (data) => {
+      if (data && data.preset && PRESETS[data.preset]) {
+        applyPreset(data.preset);
+        showBanner(`📏 환경 변경: ${PRESETS[data.preset].name}`, '#38bdf8');
+      }
+    });
+
+    // 5. 핸드폰에서 조준 감도 조절 시
+    socket.on('adjust_sens', (data) => {
+      if (data && typeof data.sens === 'number') {
+        sensX = data.sens;
+        sensY = data.sens;
+        showBanner(`⚡ 조준 감도: ${sensX.toFixed(2)}x`, '#22c55e');
+      }
     });
 
     // 시험 사격 (에임 검증 단계에서 좀비 없이 사격감과 탄착 지점 체감)
@@ -2201,16 +2036,14 @@
       }
     });
 
-    // PC 마우스 및 키보드
-    window.addEventListener('mousemove', (e) => {
-      if (isPhoneAiming) return;
-      targetAimX = ((e.clientX / window.innerWidth) * 2 - 1) * sensX;
-      targetAimY = ((e.clientY / window.innerHeight) * 2 - 1) * sensY;
+    // PC 마우스는 UI 버튼 클릭 전용 (에임은 100% 아이폰으로만 조작)
+    window.addEventListener('mousemove', () => {
+      // 마우스 조준 이동 완전 제거 (에임 조작 금지)
     });
 
     window.addEventListener('mousedown', (e) => {
       if (lobbyModal.style.display !== 'none') return;
-      if (e.target === btnToggleLobby || e.target.closest('#aimTuningHUD') || e.target.closest('#quickCalibOverlay')) return;
+      if (e.target === btnToggleLobby || e.target.closest('#quickCalibOverlay')) return;
       if (isCalibrating) return;
 
       if (isQuickCalibrating) {
@@ -2234,7 +2067,7 @@
       if (e.key === '1') socket.emit('weapon_change', { weapon: 'pistol' }), currentWeaponKey = 'pistol', ammo = WEAPONS.pistol.maxAmmo, updateAmmoHUD();
       if (e.key === '2') socket.emit('weapon_change', { weapon: 'shotgun' }), currentWeaponKey = 'shotgun', ammo = WEAPONS.shotgun.maxAmmo, updateAmmoHUD();
       if (e.key === '3') socket.emit('weapon_change', { weapon: 'magnum' }), currentWeaponKey = 'magnum', ammo = WEAPONS.magnum.maxAmmo, updateAmmoHUD();
-      if (e.key === 'c' || e.key === 'C') openQuickCalibration();
+      if (e.key === 'c' || e.key === 'C') openCalibration();
       if (e.key === 'Escape') {
         lobbyModal.style.display = lobbyModal.style.display === 'none' ? 'flex' : 'none';
       }
@@ -2245,7 +2078,7 @@
       lobbyModal.style.display = 'none';
       quickCalibOverlay.style.display = 'none';
       calibOverlay.style.display = 'none';
-      aimTuningHUD.style.display = 'none';
+      if (aimHoverNotice) aimHoverNotice.style.display = 'none';
       isQuickCalibrating = false;
       isCalibrating = false;
       isVerifyingAim = false;
@@ -2259,6 +2092,7 @@
         updateVitalHUD();
         startWave(1);
       }
+      socket.emit('game_started');
     }
 
     // 로비의 시작 버튼을 누르면 먼저 초간단 1초 중앙 영점 맞추기를 시작합니다!
@@ -2327,16 +2161,49 @@
         }
       }
 
+      // 4. 산성 독액 투사체 이동 및 플레이어 피격 판정
+      for (let i = acidProjectiles.length - 1; i >= 0; i--) {
+        const p = acidProjectiles[i];
+        p.life -= dt;
+        p.mesh.position.addScaledVector(p.vel, dt);
+        p.mesh.rotation.x += dt * 4;
+        p.mesh.rotation.y += dt * 5;
+
+        if (p.mesh.position.z >= 3.6) {
+          // 플레이어 피격!
+          playerHp = Math.max(0, playerHp - 16);
+          updateVitalHUD();
+          playSound('hurt');
+          showBanner('🤢 독액 피격! (-16 HP)', '#22c55e');
+
+          damageVignette.style.opacity = '1';
+          setTimeout(() => { damageVignette.style.opacity = '0'; }, 320);
+
+          scene.remove(p.mesh);
+          acidProjectiles.splice(i, 1);
+          continue;
+        }
+
+        if (p.life <= 0) {
+          scene.remove(p.mesh);
+          acidProjectiles.splice(i, 1);
+        }
+      }
+
       if (!gameActive) {
         renderer.render(scene, camera);
         return;
       }
 
-      // 4. 좀비 스폰 및 이동/공격 업데이트
+      // 5. 좀비 스폰 (크롤러, 스피터, 러너, 브루트, 워커 다양화)
       spawnTimer -= dt;
       if (zombiesToSpawnInWave > 0 && spawnTimer <= 0 && zombies.filter((z) => !z.dead).length < 7) {
         const rand = Math.random();
-        const type = rand > 0.82 && wave >= 2 ? 'brute' : rand > 0.55 ? 'runner' : 'walker';
+        let type = 'walker';
+        if (rand > 0.85) type = 'crawler';       // 천장 기습 크롤러
+        else if (rand > 0.68) type = 'spitter';  // 원거리 산성액 스피터
+        else if (rand > 0.48) type = 'runner';   // 지그재그 회피 러너
+        else if (rand > 0.32 && wave >= 2) type = 'brute'; // 거대 타이런트
         createZombie(type);
         zombiesToSpawnInWave--;
         spawnTimer = Math.max(0.75, 2.1 - wave * 0.15);
@@ -2365,21 +2232,78 @@
           z.torso.rotation.x = 0;
         }
 
-        // 플레이어(z = 3.2)를 향해 비틀거리며 전진
-        z.walkPhase += dt * z.speed * 3.2;
-        const sway = Math.sin(z.walkPhase) * 0.12;
-        z.group.rotation.z = sway * 0.45;
-        z.leftLeg.rotation.x = Math.sin(z.walkPhase) * 0.6;
-        z.rightLeg.rotation.x = -Math.sin(z.walkPhase) * 0.6;
-        z.leftArm.rotation.x = -Math.PI / 2.3 + Math.cos(z.walkPhase) * 0.18;
-        z.rightArm.rotation.x = -Math.PI / 2.3 - Math.cos(z.walkPhase) * 0.18;
+        // --- 몬스터 종류별 고유 AI 및 이동 애니메이션 ---
+        if (z.type === 'crawler') {
+          // [1] 천장 기습 크롤러
+          z.walkPhase += dt * z.speed * 3.5;
+          if (!z.isDropped) {
+            z.group.position.y = 4.15;
+            z.group.rotation.x = Math.PI;
+            z.leftArm.rotation.x = Math.sin(z.walkPhase) * 0.5;
+            z.rightArm.rotation.x = -Math.sin(z.walkPhase) * 0.5;
+            z.leftLeg.rotation.x = -Math.sin(z.walkPhase) * 0.5;
+            z.rightLeg.rotation.x = Math.sin(z.walkPhase) * 0.5;
 
-        // 플레이어 중앙 쪽으로 서서히 수렴하며 전진
-        const dirX = -z.group.position.x * 0.18;
-        z.group.position.x += dirX * dt;
-        z.group.position.z += z.speed * dt;
+            if (z.group.position.z >= -10) {
+              z.isDropped = true;
+              z.group.position.y = 0.25;
+              z.group.rotation.x = 0;
+              playSound('drop');
+              showBanner('⚠️ 천장 크롤러 기습 낙하 착지!', '#ef4444');
+            }
+          } else {
+            z.group.position.y = 0.25;
+            z.group.rotation.x = 0;
+            z.leftArm.rotation.x = Math.sin(z.walkPhase * 1.5) * 0.6;
+            z.rightArm.rotation.x = -Math.sin(z.walkPhase * 1.5) * 0.6;
+            z.leftLeg.rotation.x = -Math.sin(z.walkPhase * 1.5) * 0.6;
+            z.rightLeg.rotation.x = Math.sin(z.walkPhase * 1.5) * 0.6;
+          }
+          z.group.position.z += z.speed * dt;
+          z.group.position.x += (-z.group.position.x * 0.2) * dt;
 
-        // 플레이어 근접 공격 도달 시
+        } else if (z.type === 'spitter') {
+          // [2] 산성액 원거리 투척 스피터
+          z.walkPhase += dt * z.speed * 2.5;
+          if (z.group.position.z < -15.5) {
+            z.group.position.z += z.speed * dt;
+            z.leftLeg.rotation.x = Math.sin(z.walkPhase) * 0.5;
+            z.rightLeg.rotation.x = -Math.sin(z.walkPhase) * 0.5;
+          } else {
+            z.spitTimer -= dt;
+            z.group.position.y = Math.sin(z.walkPhase) * 0.08;
+            if (z.spitTimer <= 0) {
+              z.spitTimer = 2.4;
+              spawnAcidSpit(z.group.position);
+            }
+          }
+
+        } else if (z.type === 'runner') {
+          // [3] 지그재그 회피 러너
+          z.walkPhase += dt * z.speed * 3.6;
+          z.leftLeg.rotation.x = Math.sin(z.walkPhase) * 0.75;
+          z.rightLeg.rotation.x = -Math.sin(z.walkPhase) * 0.75;
+          z.leftArm.rotation.x = -Math.PI / 2.3 + Math.cos(z.walkPhase) * 0.35;
+          z.rightArm.rotation.x = -Math.PI / 2.3 - Math.cos(z.walkPhase) * 0.35;
+          z.group.position.x = z.baseSpawnX + Math.sin(z.walkPhase * 1.6) * 2.2;
+          z.group.position.z += z.speed * dt;
+
+        } else {
+          // [4] 일반 워커 & 거대 브루트
+          z.walkPhase += dt * z.speed * 2.8;
+          const sway = Math.sin(z.walkPhase) * 0.12;
+          z.group.rotation.z = sway * 0.45;
+          z.leftLeg.rotation.x = Math.sin(z.walkPhase) * 0.55;
+          z.rightLeg.rotation.x = -Math.sin(z.walkPhase) * 0.55;
+          z.leftArm.rotation.x = -Math.PI / 2.3 + Math.cos(z.walkPhase) * 0.18;
+          z.rightArm.rotation.x = -Math.PI / 2.3 - Math.cos(z.walkPhase) * 0.18;
+
+          const dirX = -z.group.position.x * 0.18;
+          z.group.position.x += dirX * dt;
+          z.group.position.z += z.speed * dt;
+        }
+
+        // 근접 공격 도달 시
         if (z.group.position.z >= 2.35) {
           z.group.position.z = 2.35;
           z.attackCooldown -= dt;
@@ -2397,6 +2321,8 @@
               setTimeout(() => {
                 zombies.forEach((zm) => scene.remove(zm.group));
                 zombies.length = 0;
+                acidProjectiles.forEach((p) => scene.remove(p.mesh));
+                acidProjectiles.length = 0;
                 playerHp = 100;
                 score = Math.floor(score * 0.5);
                 hudScore.textContent = score.toLocaleString();
