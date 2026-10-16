@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>GUN CONTROLLER</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: none;
+    }
+
+    html, body {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000000;
+      touch-action: none;
+      overscroll-behavior: none;
+      transition: background-color 0.05s linear;
+    }
+
+    /* 사격 시 전체 화면 빨간색 번쩍 */
+    body.fire-flash {
+      background: #ef4444 !important;
+    }
+
+    /* 장전 시 전체 화면 파란색 번쩍 */
+    body.reload-flash {
+      background: #2563eb !important;
+    }
+
+    /* 초기 1회 권한 허용 오버레이 */
+    #startOverlay {
+      position: fixed;
+      inset: 0;
+      background: #05070a;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 24px;
+      z-index: 100;
+      text-align: center;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    .start-btn {
+      background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+      color: #fff;
+      border: none;
+      border-radius: 16px;
+      padding: 20px 32px;
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      box-shadow: 0 8px 30px rgba(220, 38, 38, 0.5);
+      cursor: pointer;
+      margin-top: 24px;
+      width: 100%;
+      max-width: 320px;
+    }
+
+    .guide-box {
+      background: #111827;
+      border: 1px solid #374151;
+      border-radius: 14px;
+      padding: 16px;
+      font-size: 14px;
+      color: #9ca3af;
+      text-align: left;
+      line-height: 1.7;
+      max-width: 320px;
+      width: 100%;
+    }
+
+    /* 하단 미세 상태 인디케이터 (초소형) */
+    #miniStatus {
+      position: fixed;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.25);
+      font-family: monospace;
+      pointer-events: none;
+      letter-spacing: 1px;
+    }
+  </style>
+</head>
+<body>
+  <!-- 최초 1회 권한 허용 화면 -->
+  <div id="startOverlay">
+    <h1 style="font-size: 24px; color: #ef4444; margin-bottom: 14px;">🔫 건 컨트롤러 연결</h1>
+    <div class="guide-box">
+      • <b>화면 전체 터치</b>: 사격 (빨간색 번쩍 💥)<br/>
+      • <b>핸드폰 각도 꺾기 / 스와이프</b>: 장전 (파란색 깜빡 🔄)<br/>
+      • 조작 버튼 없이 <b>화면 전체가 방아쇠</b>입니다. 모니터만 보고 플레이하세요!
+    </div>
+    <button class="start-btn" id="btnActivate">센서 시작 (터치)</button>
+  </div>
+
+  <div id="miniStatus">CONNECTED • GYRO ACTIVE</div>
+
+  <script>
+    // iOS Safari 확대/스크롤 완전 차단
+    document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
+    document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
+    document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
+    document.addEventListener('gestureend', (e) => e.preventDefault(), { passive: false });
+
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', (e) => {
+      const now = Date.now();
+      if (now - lastTouchEnd <= 350 && e.cancelable) e.preventDefault();
+      lastTouchEnd = now;
+    }, { passive: false });
+
+    const socket = io({ transports: ['websocket', 'polling'] });
+    const startOverlay = document.getElementById('startOverlay');
+    const btnActivate = document.getElementById('btnActivate');
+    const miniStatus = document.getElementById('miniStatus');
+
+    let currentYaw = 0;
+    let currentPitch = 0;
+    let currentRoll = 0;
+    let lastReloadTime = 0;
+
+    // 햅틱 및 사운드
+    function triggerHaptic(type) {
+      if (navigator.vibrate) {
+        if (type === 'shoot') navigator.vibrate(35);
+        else if (type === 'reload') navigator.vibrate([40, 50, 70]);
+      }
+    }
+
+    function flashColor(colorType) {
+      if (colorType === 'shoot') {
+        document.body.classList.remove('reload-flash');
+        document.body.classList.add('fire-flash');
+        setTimeout(() => document.body.classList.remove('fire-flash'), 75);
+      } else if (colorType === 'reload') {
+        document.body.classList.remove('fire-flash');
+        document.body.classList.add('reload-flash');
+        setTimeout(() => {
+          document.body.classList.remove('reload-flash');
+          setTimeout(() => {
+            document.body.classList.add('reload-flash');
+            setTimeout(() => document.body.classList.remove('reload-flash'), 100);
+          }, 80);
+        }, 120);
+      }
+    }
+
+    function doReload() {
+      const now = Date.now();
+      if (now - lastReloadTime < 550) return;
+      lastReloadTime = now;
+      socket.emit('reload', { method: 'gesture' });
+      triggerHaptic('reload');
+      flashColor('reload');
+    }
+
+    // 3D 오리엔테이션 계산
+    const DEG2RAD = Math.PI / 180;
+    const RAD2DEG = 180 / Math.PI;
+
+    let initialAlpha = null;
+    let initialBeta = null;
+
+    function handleOrientation(e) {
+      if (e.alpha === null) return;
+      const alpha = e.alpha || 0;
+      const beta = e.beta || 0;
+      const gamma = e.gamma || 0;
+
+      if (initialAlpha === null) {
+        initialAlpha = alpha;
+        initialBeta = beta;
+      }
+
+      // 수평 회전(Yaw) & 상하(Pitch)
+      let dYaw = -(((alpha - initialAlpha + 540) % 360) - 180);
+      let dPitch = beta - initialBeta;
+
+      currentYaw = dYaw;
+      currentPitch = dPitch;
+      currentRoll = gamma;
+
+      socket.emit('aim', {
+        yaw: currentYaw,
+        pitch: currentPitch,
+        roll: currentRoll
+      });
+    }
+
+    // 모션 장전 감지 (핸드폰 각도 확 꺾기)
+    function handleMotion(e) {
+      const rot = e.rotationRate;
+      if (rot) {
+        const a = Math.abs(rot.alpha || 0);
+        const b = Math.abs(rot.beta || 0);
+        const g = Math.abs(rot.gamma || 0);
+        if (a > 260 || b > 260 || g > 300) {
+          doReload();
+        }
+      }
+      const acc = e.acceleration;
+      if (acc) {
+        const total = Math.abs(acc.x || 0) + Math.abs(acc.y || 0) + Math.abs(acc.z || 0);
+        if (total > 26) {
+          doReload();
+        }
+      }
+    }
+
+    btnActivate.addEventListener('click', async () => {
+      try {
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+          const s = await DeviceOrientationEvent.requestPermission();
+          if (s === 'granted') window.addEventListener('deviceorientation', handleOrientation, true);
+        } else {
+          window.addEventListener('deviceorientation', handleOrientation, true);
+        }
+
+        if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+          const m = await DeviceMotionEvent.requestPermission();
+          if (m === 'granted') window.addEventListener('devicemotion', handleMotion, true);
+        } else {
+          window.addEventListener('devicemotion', handleMotion, true);
+        }
+      } catch (err) {
+        console.warn(err);
+      }
+
+      startOverlay.style.display = 'none';
+      socket.emit('register_role', 'controller');
+      miniStatus.textContent = 'GUN ARMED • TOUCH TO FIRE';
+    });
+
+    // 화면 터치 사격 (터치 시 빨간색 깜빡) & 스와이프 장전
+    let touchStartY = 0;
+    let touchStartX = 0;
+
+    window.addEventListener('touchstart', (e) => {
+      if (startOverlay.style.display !== 'none') return;
+      if (e.cancelable) e.preventDefault();
+
+      const t = e.touches[0];
+      touchStartX = t.clientX;
+      touchStartY = t.clientY;
+
+      // 즉시 사격 발사 & 빨간색 번쩍!
+      socket.emit('shoot', {
+        timestamp: Date.now(),
+        yaw: currentYaw,
+        pitch: currentPitch,
+        roll: currentRoll
+      });
+
+      triggerHaptic('shoot');
+      flashColor('shoot');
+    }, { passive: false });
+
+    window.addEventListener('touchmove', (e) => {
+      if (startOverlay.style.display !== 'none') return;
+      if (e.cancelable) e.preventDefault();
+      const t = e.touches[0];
+      const dy = t.clientY - touchStartY;
+      const dx = t.clientX - touchStartX;
+
+      // 화면을 길게 쓸어내리거나 올리면 스와이프 장전!
+      if (Math.abs(dy) > 70 || Math.abs(dx) > 70) {
+        doReload();
+        touchStartY = t.clientY;
+        touchStartX = t.clientX;
+      }
+    }, { passive: false });
+  </script>
+</body>
+</html>

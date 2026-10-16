@@ -1,0 +1,1772 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BIOHAZARD: SMART-GUN SURVIVAL (FPS)</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    :root {
+      --crimson: #e11d48;
+      --blood: #881337;
+      --neon-green: #00e676;
+      --amber: #ffab00;
+      --cyan: #38bdf8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #030406;
+      color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      cursor: none;
+    }
+
+    #gameCanvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 1;
+    }
+
+    /* 피격 혈흔 비네트 및 무즐 플래시 오버레이 */
+    #damageVignette {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 5;
+      background: radial-gradient(circle, transparent 45%, rgba(185, 28, 28, 0.85) 100%);
+      opacity: 0;
+      transition: opacity 0.18s ease-out;
+    }
+
+    #reloadFlash {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 5;
+      border: 4px solid rgba(0, 230, 118, 0);
+      transition: border-color 0.15s;
+    }
+
+    /* 조준 크로스헤어 (아이폰 방향 추종) */
+    #crosshair {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      width: 58px;
+      height: 58px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 20;
+      transition: transform 0.025s linear;
+    }
+
+    .ch-ring {
+      position: absolute;
+      inset: 0;
+      border: 2px solid rgba(255, 42, 42, 0.85);
+      border-radius: 50%;
+      box-shadow: 0 0 12px rgba(255, 42, 42, 0.6);
+    }
+
+    .ch-dot {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 6px;
+      height: 6px;
+      background: #ff2a2a;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 8px #ff2a2a;
+    }
+
+    .ch-line {
+      position: absolute;
+      background: rgba(255, 255, 255, 0.9);
+    }
+    .ch-top { width: 2px; height: 12px; left: 50%; top: -8px; transform: translateX(-50%); }
+    .ch-bottom { width: 2px; height: 12px; left: 50%; bottom: -8px; transform: translateX(-50%); }
+    .ch-left { width: 12px; height: 2px; top: 50%; left: -8px; transform: translateY(-50%); }
+    .ch-right { width: 12px; height: 2px; top: 50%; right: -8px; transform: translateY(-50%); }
+
+    /* 상단 HUD */
+    .hud-top {
+      position: fixed;
+      top: 20px;
+      left: 24px;
+      right: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .brand-box {
+      background: rgba(8, 12, 18, 0.82);
+      border-left: 4px solid var(--crimson);
+      padding: 12px 18px;
+      border-radius: 0 12px 12px 0;
+      backdrop-filter: blur(6px);
+    }
+
+    .brand-title {
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      color: #fff;
+    }
+
+    .conn-pill {
+      margin-top: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #94a3b8;
+    }
+
+    .conn-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--crimson);
+      box-shadow: 0 0 8px var(--crimson);
+    }
+
+    .conn-dot.online {
+      background: var(--neon-green);
+      box-shadow: 0 0 10px var(--neon-green);
+    }
+
+    .score-board {
+      display: flex;
+      gap: 16px;
+      background: rgba(8, 12, 18, 0.82);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 12px 22px;
+      border-radius: 12px;
+      backdrop-filter: blur(6px);
+    }
+
+    .stat-item {
+      text-align: right;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      font-weight: 800;
+      color: #64748b;
+      letter-spacing: 1px;
+    }
+
+    .stat-value {
+      font-size: 26px;
+      font-weight: 900;
+      color: #fff;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* 중앙 알림 팝업 (HEADSHOT / RELOAD / WAVE CLEAR) */
+    #centerBanner {
+      position: fixed;
+      top: 22%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.9);
+      z-index: 15;
+      pointer-events: none;
+      font-size: 36px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-shadow: 0 4px 25px rgba(0, 0, 0, 0.9);
+      opacity: 0;
+      transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    #centerBanner.show {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    #reloadPrompt {
+      position: fixed;
+      top: 62%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 15;
+      pointer-events: none;
+      background: rgba(225, 29, 72, 0.92);
+      color: #fff;
+      font-weight: 900;
+      font-size: 20px;
+      padding: 10px 26px;
+      border-radius: 999px;
+      letter-spacing: 1.5px;
+      box-shadow: 0 0 25px rgba(225, 29, 72, 0.7);
+      display: none;
+      animation: pulseReload 0.45s infinite alternate;
+    }
+
+    @keyframes pulseReload {
+      from { transform: translate(-50%, -50%) scale(0.95); }
+      to { transform: translate(-50%, -50%) scale(1.06); }
+    }
+
+    /* 하단 바이오하자드 스타일 ECG 바이탈 & 탄창 HUD */
+    .hud-bottom {
+      position: fixed;
+      bottom: 22px;
+      left: 24px;
+      right: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .ecg-panel {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: rgba(8, 12, 18, 0.86);
+      border: 1px solid #1e293b;
+      border-radius: 14px;
+      padding: 12px 18px;
+      backdrop-filter: blur(8px);
+    }
+
+    #ecgCanvas {
+      width: 150px;
+      height: 52px;
+      background: #040806;
+      border: 1px solid #143321;
+      border-radius: 8px;
+    }
+
+    .condition-label {
+      font-size: 11px;
+      color: #64748b;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    .condition-state {
+      font-size: 26px;
+      font-weight: 900;
+      color: var(--neon-green);
+      letter-spacing: 1.5px;
+    }
+
+    .ammo-panel {
+      background: rgba(8, 12, 18, 0.86);
+      border: 1px solid #1e293b;
+      border-radius: 14px;
+      padding: 14px 22px;
+      text-align: right;
+      backdrop-filter: blur(8px);
+    }
+
+    .weapon-name {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--cyan);
+      letter-spacing: 1.5px;
+      margin-bottom: 4px;
+    }
+
+    .ammo-numbers {
+      display: flex;
+      align-items: baseline;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+
+    .ammo-big {
+      font-size: 44px;
+      font-weight: 900;
+      line-height: 1;
+      color: #fff;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .ammo-big.low {
+      color: var(--crimson);
+    }
+
+    .ammo-cap {
+      font-size: 20px;
+      color: #64748b;
+      font-weight: 800;
+    }
+
+    .bullet-bars {
+      display: flex;
+      justify-content: flex-end;
+      gap: 4px;
+      margin-top: 8px;
+      height: 14px;
+    }
+
+    .bullet-pip {
+      width: 6px;
+      height: 14px;
+      background: var(--amber);
+      border-radius: 2px;
+      box-shadow: 0 0 5px rgba(255, 171, 0, 0.5);
+    }
+
+    .bullet-pip.spent {
+      background: #1e293b;
+      box-shadow: none;
+    }
+
+    /* QR 연결 및 로비 모달 */
+    .lobby-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(3, 5, 8, 0.88);
+      backdrop-filter: blur(10px);
+      z-index: 50;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 24px;
+      cursor: auto;
+    }
+
+    .lobby-card {
+      background: linear-gradient(145deg, #101620 0%, #090c12 100%);
+      border: 2px solid #991b1b;
+      border-radius: 24px;
+      max-width: 880px;
+      width: 100%;
+      padding: 32px;
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 28px;
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.9);
+    }
+
+    .lobby-left h1 {
+      font-size: 32px;
+      font-weight: 900;
+      color: #ef4444;
+      letter-spacing: 1.5px;
+      margin-bottom: 8px;
+    }
+
+    .lobby-left .subtitle {
+      font-size: 15px;
+      color: #cbd5e1;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    .feature-list {
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid #1e293b;
+      border-radius: 16px;
+      padding: 16px 18px;
+      margin-bottom: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 14px;
+      color: #e2e8f0;
+    }
+
+    .safari-tip {
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 12.5px;
+      color: #bae6fd;
+      line-height: 1.55;
+      margin-bottom: 20px;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn-primary {
+      flex: 1;
+      background: linear-gradient(135deg, #e11d48 0%, #9f1239 100%);
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      padding: 15px 20px;
+      font-size: 16px;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 8px 25px rgba(225, 29, 72, 0.4);
+    }
+
+    .btn-primary:hover {
+      filter: brightness(1.1);
+    }
+
+    .lobby-right {
+      background: #0b0f17;
+      border: 1px solid #1e293b;
+      border-radius: 18px;
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .qr-frame {
+      background: #fff;
+      padding: 12px;
+      border-radius: 16px;
+      margin: 12px 0;
+      width: 210px;
+      height: 210px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .qr-frame img {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .url-code {
+      font-family: monospace;
+      font-size: 12px;
+      color: var(--cyan);
+      background: rgba(56, 189, 248, 0.1);
+      padding: 6px 10px;
+      border-radius: 8px;
+      word-break: break-all;
+      margin-top: 6px;
+    }
+
+    .qr-toggle-btn {
+      position: fixed;
+      top: 95px;
+      left: 24px;
+      z-index: 25;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid #334155;
+      color: #cbd5e1;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* 모니터 3점 영점 캘리브레이션 오버레이 */
+    #calibOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(4, 7, 12, 0.94);
+      backdrop-filter: blur(8px);
+      z-index: 60;
+      display: none;
+      cursor: crosshair;
+    }
+    .calib-instructions {
+      position: absolute;
+      top: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.95);
+      border: 2px solid #38bdf8;
+      border-radius: 16px;
+      padding: 16px 28px;
+      text-align: center;
+      box-shadow: 0 0 30px rgba(56, 189, 248, 0.35);
+      max-width: 650px;
+      width: 90%;
+      pointer-events: none;
+    }
+    .calib-title {
+      font-size: 24px;
+      font-weight: 900;
+      color: #38bdf8;
+      margin-bottom: 6px;
+      letter-spacing: 1px;
+    }
+    .calib-sub {
+      font-size: 14px;
+      color: #cbd5e1;
+      line-height: 1.5;
+    }
+    .calib-target {
+      position: absolute;
+      width: 120px;
+      height: 120px;
+      transform: translate(-50%, -50%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: left 0.35s cubic-bezier(0.16, 1, 0.3, 1), top 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .calib-ring-outer {
+      position: absolute;
+      inset: 0;
+      border: 3px solid #ef4444;
+      border-radius: 50%;
+      box-shadow: 0 0 25px rgba(239, 68, 68, 0.7);
+      animation: pulseTarget 0.9s infinite alternate;
+    }
+    .calib-ring-inner {
+      position: absolute;
+      width: 52px;
+      height: 52px;
+      border: 2px dashed #ffab00;
+      border-radius: 50%;
+    }
+    .calib-bullseye {
+      width: 16px;
+      height: 16px;
+      background: #ef4444;
+      border-radius: 50%;
+      box-shadow: 0 0 12px #ef4444;
+    }
+    @keyframes pulseTarget {
+      from { transform: scale(0.9); opacity: 0.85; }
+      to { transform: scale(1.1); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <div id="damageVignette"></div>
+  <div id="reloadFlash"></div>
+
+  <!-- 실시간 조준점 (Crosshair) -->
+  <div id="crosshair">
+    <div class="ch-ring"></div>
+    <div class="ch-dot"></div>
+    <div class="ch-line ch-top"></div>
+    <div class="ch-line ch-bottom"></div>
+    <div class="ch-line ch-left"></div>
+    <div class="ch-line ch-right"></div>
+  </div>
+
+  <!-- 상단 HUD -->
+  <div class="hud-top">
+    <div class="brand-box">
+      <div class="brand-title">BIOHAZARD : SMART-GUN</div>
+      <div class="conn-pill">
+        <div class="conn-dot" id="hudConnDot"></div>
+        <span id="hudConnText">아이폰 연결 대기 중 (마우스 조작 가능)</span>
+      </div>
+    </div>
+
+    <div class="score-board">
+      <div class="stat-item">
+        <div class="stat-label">WAVE</div>
+        <div class="stat-value" id="hudWave">1</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">COMBO</div>
+        <div class="stat-value" id="hudCombo" style="color: var(--amber);">x1</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">SCORE</div>
+        <div class="stat-value" id="hudScore">0</div>
+      </div>
+    </div>
+  </div>
+
+  <button class="qr-toggle-btn" id="btnToggleLobby">📱 아이폰 QR 연결 창 열기 (ESC)</button>
+  <button class="qr-toggle-btn" id="btnCalibStart" style="left: 275px; border-color: #38bdf8; color: #38bdf8;">🎯 모니터 9점 영점 맞추기 (C)</button>
+
+  <!-- 모니터 9점 정밀 영점 캘리브레이션 오버레이 (3x3 정밀 화각 튜닝) -->
+  <div id="calibOverlay">
+    <div class="calib-instructions">
+      <div style="background: rgba(239, 68, 68, 0.25); border: 1px solid #ef4444; color: #fca5a5; padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 800; margin-bottom: 10px;">
+        ⚠️ 주의: 캘리브레이션 도중에는 브라우저 창 크기를 변경하지 마세요! (전체화면 권장)
+      </div>
+      <div class="calib-title" id="calibTitle">🎯 [1 / 9단계] [좌측 상단] 과녁 조준</div>
+      <div class="calib-sub" id="calibSub">아이폰 총구로 <b>표시된 과녁</b>을 조준하고 <b>화면을 터치(사격)</b>하세요!</div>
+    </div>
+    <div class="calib-target" id="calibTarget" style="left: 15%; top: 18%;">
+      <div class="calib-ring-outer"></div>
+      <div class="calib-ring-inner"></div>
+      <div class="calib-bullseye"></div>
+      <div id="calibStepBadge" style="position: absolute; bottom: -28px; font-size: 13px; font-weight: 900; color: #fff; background: rgba(0,0,0,0.8); border: 1px solid #ef4444; padding: 2px 10px; border-radius: 999px; white-space: nowrap;">1 / 9</div>
+    </div>
+
+    <!-- 9점 완료 후 에임 체험 및 최종 확인 패널 -->
+    <div id="calibVerifyPanel" style="display: none; position: absolute; bottom: 35px; left: 50%; transform: translateX(-50%); flex-direction: column; align-items: center; gap: 14px; background: rgba(15, 23, 42, 0.96); border: 2px solid #22c55e; border-radius: 20px; padding: 20px 32px; box-shadow: 0 0 45px rgba(34, 197, 94, 0.45); text-align: center; z-index: 10;">
+      <div style="font-size: 22px; font-weight: 900; color: #4ade80;">🎯 에임 체험 모드 : 에임이 화면에 잘 맞습니까?</div>
+      <div style="font-size: 13.5px; color: #cbd5e1; line-height: 1.5;">
+        모니터 구석구석 조준선을 움직여보고 연습 사격해 보세요.<br/>
+        <b style="color: #f59e0b;">에임이 완벽하면 [좀비전 시작]을 누르고, 이상하면 [다시 맞추기]를 누르세요.</b>
+      </div>
+      <div style="display: flex; gap: 16px; margin-top: 6px;">
+        <button id="btnConfirmStartGame" style="background: linear-gradient(135deg, #22c55e 0%, #15803d 100%); color: #fff; border: none; border-radius: 12px; padding: 14px 28px; font-size: 17px; font-weight: 900; cursor: pointer; box-shadow: 0 4px 18px rgba(34, 197, 94, 0.4);">
+          ✅ 에임 완벽함! 이제 좀비전 시작 ➔
+        </button>
+        <button id="btnRestartCalib" style="background: rgba(239, 68, 68, 0.2); border: 2px solid #ef4444; color: #fca5a5; border-radius: 12px; padding: 14px 22px; font-size: 15px; font-weight: 800; cursor: pointer;">
+          🔄 에임 이상함! 9점 다시 맞추기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 중앙 배너 & 재장전 경고 -->
+  <div id="centerBanner">💥 CRITICAL HEADSHOT!</div>
+  <div id="reloadPrompt">⚠️ RELOAD! (안➔밖 스와이프 또는 폰 각도 확 꺾기)</div>
+
+  <!-- 하단 HUD -->
+  <div class="hud-bottom">
+    <div class="ecg-panel">
+      <canvas id="ecgCanvas" width="150" height="52"></canvas>
+      <div>
+        <div class="condition-label">VITAL CONDITION</div>
+        <div class="condition-state" id="hudCondition">FINE</div>
+      </div>
+    </div>
+
+    <div class="ammo-panel">
+      <div class="weapon-name" id="hudWeaponName">S.T.A.R.S. SAMURAI EDGE (9mm)</div>
+      <div class="ammo-numbers">
+        <span class="ammo-big" id="hudAmmo">12</span>
+        <span class="ammo-cap" id="hudAmmoCap">/ 12</span>
+      </div>
+      <div class="bullet-bars" id="bulletBars"></div>
+    </div>
+  </div>
+
+  <!-- QR 코드 연결 및 시작 모달 -->
+  <div class="lobby-modal" id="lobbyModal">
+    <div class="lobby-card">
+      <div class="lobby-left">
+        <h1>🧟 BIOHAZARD: SMART-GUN</h1>
+        <p class="subtitle">아이폰을 무선 건 컨트롤러로 연결해 좀비 무리를 처치하는 아케이드 FPS</p>
+
+        <div class="feature-list">
+          <div>🎯 <b>아이폰 방향 에임</b>: 아이폰을 잡고 가리키는 방향으로 레이저 조준점 이동</div>
+          <div>💥 <b>터치 사격</b>: 아이폰 화면 아무 곳이나 터치하면 즉시 발사</div>
+          <div>🔄 <b>듀얼 모션 장전</b>: 화면을 <b>안쪽➔바깥쪽으로 왕복 스와이프</b>하거나 <b>핸드폰 각도를 확 꺾기</b></div>
+        </div>
+
+        <div class="safari-tip">
+          💡 <b>아이폰 Safari 최초 접속 팁 (자이로 센서 활성화)</b><br/>
+          우측 QR 스캔 후 Safari에서 <i>"이 연결은 비공개가 아닙니다"</i> 안내가 뜨면<br/>
+          하단의 <b>[상세 보기] ➔ [이 웹사이트 방문]</b>을 탭하면 iOS 자이로 센서가 100% 작동합니다!
+        </div>
+
+        <div class="btn-row">
+          <button class="btn-primary" id="btnStartGame">🎯 [1단계] 모니터 9점 영점 맞추기 시작</button>
+        </div>
+      </div>
+
+      <div class="lobby-right">
+        <div style="font-size: 15px; font-weight: 800; color: #f8fafc;">📱 아이폰 카메라로 QR 스캔</div>
+        <div class="qr-frame">
+          <img id="qrImage" alt="Controller QR Code" src="" />
+        </div>
+        <div style="font-size: 12px; color: #94a3b8;">LTE/5G/와이파이 어디서든 접속 가능</div>
+        <div class="url-code" id="controllerUrlText">로딩 중...</div>
+        <div id="tunnelPwBadge" style="margin-top: 10px; background: rgba(0, 230, 118, 0.15); border: 1px solid #00e676; border-radius: 8px; padding: 6px 12px; font-size: 12px; color: #00e676; font-weight: 800;">
+          🔑 첫 접속 비밀번호: <span id="tunnelPwText">112.169.64.92</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const socket = io({ transports: ['websocket', 'polling'] });
+
+    // UI 참조
+    const lobbyModal = document.getElementById('lobbyModal');
+    const btnStartGame = document.getElementById('btnStartGame');
+    const btnToggleLobby = document.getElementById('btnToggleLobby');
+    const qrImage = document.getElementById('qrImage');
+    const controllerUrlText = document.getElementById('controllerUrlText');
+    const hudConnDot = document.getElementById('hudConnDot');
+    const hudConnText = document.getElementById('hudConnText');
+    const crosshair = document.getElementById('crosshair');
+    const hudWave = document.getElementById('hudWave');
+    const hudCombo = document.getElementById('hudCombo');
+    const hudScore = document.getElementById('hudScore');
+    const hudCondition = document.getElementById('hudCondition');
+    const hudWeaponName = document.getElementById('hudWeaponName');
+    const hudAmmo = document.getElementById('hudAmmo');
+    const hudAmmoCap = document.getElementById('hudAmmoCap');
+    const bulletBars = document.getElementById('bulletBars');
+    const centerBanner = document.getElementById('centerBanner');
+    const reloadPrompt = document.getElementById('reloadPrompt');
+    const damageVignette = document.getElementById('damageVignette');
+    const reloadFlash = document.getElementById('reloadFlash');
+
+    function applyConnectionInfo(info) {
+      if (!info) return;
+      qrImage.src = info.qrHttpsDataUrl;
+      controllerUrlText.textContent = info.controllerHttpsUrl;
+      const pwBadge = document.getElementById('tunnelPwBadge');
+      const pwText = document.getElementById('tunnelPwText');
+      if (pwBadge && pwText) {
+        if (info.tunnelPassword) {
+          pwText.textContent = info.tunnelPassword;
+          pwBadge.style.display = 'block';
+        } else {
+          pwBadge.style.display = 'none';
+        }
+      }
+    }
+
+    fetch('/api/info')
+      .then((r) => r.json())
+      .then(applyConnectionInfo)
+      .catch((err) => console.error(err));
+
+    socket.on('connection_info', applyConnectionInfo);
+
+    // =========================================================================
+    // 사운드 신디사이저 엔진 (Web Audio API - 외부 오디오 파일 없이 리얼 사운드 합성)
+    // =========================================================================
+    let audioCtx = null;
+    function ensureAudio() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function playSound(type) {
+      if (!audioCtx) return;
+      const now = audioCtx.currentTime;
+
+      if (type === 'pistol' || type === 'shotgun' || type === 'magnum') {
+        // 화이트 노이즈 폭발음 + 저음 펀치
+        const duration = type === 'shotgun' ? 0.32 : type === 'magnum' ? 0.38 : 0.18;
+        const bufferSize = audioCtx.sampleRate * duration;
+        const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (audioCtx.sampleRate * (duration * 0.35)));
+        }
+        const whiteNoise = audioCtx.createBufferSource();
+        whiteNoise.buffer = noiseBuffer;
+
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(type === 'pistol' ? 1800 : 1200, now);
+
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(type === 'magnum' ? 0.7 : 0.5, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+
+        whiteNoise.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+        whiteNoise.start(now);
+
+        // 총성 타격 저음 발진기
+        const osc = audioCtx.createOscillator();
+        const oscGain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(type === 'magnum' ? 120 : 190, now);
+        osc.frequency.exponentialRampToValueAtTime(28, now + 0.12);
+        oscGain.gain.setValueAtTime(0.55, now);
+        oscGain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+        osc.connect(oscGain);
+        oscGain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.12);
+      } else if (type === 'empty') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(950, now);
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.04);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.04);
+      } else if (type === 'reload') {
+        // 철컥! 2단 금속 슬라이드 사운드
+        [0, 0.14].forEach((delay, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(idx === 0 ? 480 : 760, now + delay);
+          osc.frequency.exponentialRampToValueAtTime(190, now + delay + 0.07);
+          gain.gain.setValueAtTime(0.3, now + delay);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + delay + 0.07);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + delay);
+          osc.stop(now + delay + 0.07);
+        });
+      } else if (type === 'headshot') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(1760, now + 0.11);
+        gain.gain.setValueAtTime(0.28, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.12);
+      } else if (type === 'zombie_groan') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(85 + Math.random() * 25, now);
+        osc.frequency.linearRampToValueAtTime(58, now + 0.45);
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.008, now + 0.45);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.45);
+      } else if (type === 'hurt') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(140, now);
+        osc.frequency.exponentialRampToValueAtTime(42, now + 0.3);
+        gain.gain.setValueAtTime(0.45, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.3);
+      }
+    }
+
+    // =========================================================================
+    // 무기 시스템 정의
+    // =========================================================================
+    const WEAPONS = {
+      pistol: {
+        name: 'S.T.A.R.S. SAMURAI EDGE (9mm)',
+        maxAmmo: 12,
+        damage: 36,
+        headMultiplier: 3.0,
+        spread: 0.0,
+        pellets: 1,
+        recoil: 0.14
+      },
+      shotgun: {
+        name: 'REMINGTON M870 SHOTGUN (12-GAUGE)',
+        maxAmmo: 6,
+        damage: 26,
+        headMultiplier: 2.2,
+        spread: 0.055,
+        pellets: 6,
+        recoil: 0.32
+      },
+      magnum: {
+        name: 'LIGHTNING HAWK (.50 AE MAGNUM)',
+        maxAmmo: 6,
+        damage: 115,
+        headMultiplier: 3.5,
+        spread: 0.0,
+        pellets: 1,
+        recoil: 0.38
+      }
+    };
+
+    let currentWeaponKey = 'pistol';
+    let ammo = WEAPONS.pistol.maxAmmo;
+    let playerHp = 100;
+    let score = 0;
+    let combo = 1;
+    let wave = 1;
+    let gameActive = false;
+    let isCalibrated = false;
+    let practiceMode = true;
+
+    // 조준 상태 (-1 ~ +1 정규화 화면 좌표)
+    let targetAimX = 0;
+    let targetAimY = 0;
+    let smoothAimX = 0;
+    let smoothAimY = 0;
+    let gunRollDeg = 0;
+
+    function syncStateToPhone() {
+      const weapon = WEAPONS[currentWeaponKey];
+      socket.emit('sync_state', {
+        ammo,
+        maxAmmo: weapon.maxAmmo,
+        hp: playerHp,
+        weapon: currentWeaponKey,
+        score,
+        wave
+      });
+    }
+
+    function updateAmmoHUD() {
+      const weapon = WEAPONS[currentWeaponKey];
+      hudWeaponName.textContent = weapon.name;
+      hudAmmo.textContent = ammo;
+      hudAmmoCap.textContent = `/ ${weapon.maxAmmo}`;
+      hudAmmo.classList.toggle('low', ammo <= 2);
+      reloadPrompt.style.display = ammo <= 0 ? 'block' : 'none';
+
+      bulletBars.innerHTML = '';
+      for (let i = 0; i < weapon.maxAmmo; i++) {
+        const pip = document.createElement('div');
+        pip.className = 'bullet-pip' + (i >= ammo ? ' spent' : '');
+        bulletBars.appendChild(pip);
+      }
+      syncStateToPhone();
+    }
+
+    function updateVitalHUD() {
+      if (playerHp > 60) {
+        hudCondition.textContent = 'FINE';
+        hudCondition.style.color = '#00e676';
+      } else if (playerHp > 25) {
+        hudCondition.textContent = 'CAUTION';
+        hudCondition.style.color = '#ffab00';
+      } else {
+        hudCondition.textContent = 'DANGER';
+        hudCondition.style.color = '#e11d48';
+      }
+      syncStateToPhone();
+    }
+
+    function showBanner(text, color = '#ffab00') {
+      centerBanner.textContent = text;
+      centerBanner.style.color = color;
+      centerBanner.classList.add('show');
+      clearTimeout(showBanner._timer);
+      showBanner._timer = setTimeout(() => {
+        centerBanner.classList.remove('show');
+      }, 950);
+    }
+
+    // =========================================================================
+    // 바이오하자드 심전도(ECG) 파형 캔버스 애니메이션
+    // =========================================================================
+    const ecgCanvas = document.getElementById('ecgCanvas');
+    const ecgCtx = ecgCanvas.getContext('2d');
+    let ecgPhase = 0;
+
+    function drawEcg() {
+      ecgCtx.fillStyle = 'rgba(4, 8, 6, 0.22)';
+      ecgCtx.fillRect(0, 0, ecgCanvas.width, ecgCanvas.height);
+
+      const speed = playerHp > 60 ? 2.2 : playerHp > 25 ? 3.4 : 4.8;
+      ecgPhase = (ecgPhase + speed) % ecgCanvas.width;
+
+      const x = ecgPhase;
+      let y = 26;
+      const cycle = x % 50;
+      if (cycle > 18 && cycle < 22) y = 10;
+      else if (cycle >= 22 && cycle < 26) y = 44;
+      else if (cycle >= 26 && cycle < 30) y = 18;
+
+      ecgCtx.fillStyle = playerHp > 60 ? '#00e676' : playerHp > 25 ? '#ffab00' : '#ff2a2a';
+      ecgCtx.fillRect(x, y, 3, 3);
+    }
+
+    // =========================================================================
+    // Three.js 3D 호러 렌더러 및 씬 구성
+    // =========================================================================
+    const canvas = document.getElementById('gameCanvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x040609);
+    scene.fog = new THREE.FogExp2(0x05070b, 0.042);
+
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 1.65, 4.5);
+
+    // 조명: 어두운 폐연구동 분위기 + 붉은 비상등 + 총구 전술 라이트
+    const ambientLight = new THREE.AmbientLight(0x1e293b, 0.45);
+    scene.add(ambientLight);
+
+    const emergencyLight = new THREE.PointLight(0xdc2626, 1.6, 28);
+    emergencyLight.position.set(0, 4.2, -8);
+    scene.add(emergencyLight);
+
+    const coldMoonLight = new THREE.DirectionalLight(0x64748b, 0.5);
+    coldMoonLight.position.set(4, 10, 6);
+    scene.add(coldMoonLight);
+
+    // 아이폰 조준 방향을 비추는 전술 플래시라이트 (SpotLight)
+    const flashlight = new THREE.SpotLight(0xfffbeb, 2.6, 35, Math.PI / 6.5, 0.45, 1.2);
+    flashlight.position.set(0.3, 1.4, 4.2);
+    const flashlightTarget = new THREE.Object3D();
+    flashlightTarget.position.set(0, 1.5, -10);
+    scene.add(flashlightTarget);
+    flashlight.target = flashlightTarget;
+    scene.add(flashlight);
+
+    // 총구 화염 조명
+    const muzzleLight = new THREE.PointLight(0xffab00, 0, 12);
+    muzzleLight.position.set(0.35, 1.35, 3.6);
+    scene.add(muzzleLight);
+
+    // 바닥 & 복도 기둥 환경 생성
+    const floorGeo = new THREE.PlaneGeometry(36, 60, 12, 12);
+    const floorMat = new THREE.MeshStandardMaterial({
+      color: 0x11151c,
+      roughness: 0.85,
+      metalness: 0.15
+    });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.z = -18;
+    scene.add(floor);
+
+    // 천장 및 복도 기둥들
+    const pillarGeo = new THREE.BoxGeometry(1.1, 5.5, 1.1);
+    const pillarMat = new THREE.MeshStandardMaterial({ color: 0x1a202c, roughness: 0.9 });
+    for (let z = -3; z >= -33; z -= 6) {
+      [-5.2, 5.2].forEach((x) => {
+        const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+        pillar.position.set(x, 2.75, z);
+        scene.add(pillar);
+      });
+    }
+
+    // 엄폐물 바리케이드 박스
+    const crateGeo = new THREE.BoxGeometry(1.4, 1.1, 1.2);
+    const crateMat = new THREE.MeshStandardMaterial({ color: 0x2d2318, roughness: 0.95 });
+    [
+      [-2.8, 0.55, -8],
+      [3.1, 0.55, -12],
+      [-2.2, 0.55, -19]
+    ].forEach(([x, y, z]) => {
+      const crate = new THREE.Mesh(crateGeo, crateMat);
+      crate.position.set(x, y, z);
+      crate.rotation.y = (Math.random() - 0.5) * 0.5;
+      scene.add(crate);
+    });
+
+    // =========================================================================
+    // 우측 하단 1인칭 3D 권총 모델 + 레드 레이저 사이트
+    // =========================================================================
+    const gunGroup = new THREE.Group();
+    const gunSlideMat = new THREE.MeshStandardMaterial({ color: 0x1e242b, metalness: 0.75, roughness: 0.3 });
+    const gunGripMat = new THREE.MeshStandardMaterial({ color: 0x2c1810, roughness: 0.8 });
+
+    const gunSlide = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.14, 0.58), gunSlideMat);
+    gunSlide.position.set(0, 0.06, -0.1);
+    gunGroup.add(gunSlide);
+
+    const gunGrip = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.28, 0.16), gunGripMat);
+    gunGrip.position.set(0, -0.1, 0.1);
+    gunGrip.rotation.x = 0.25;
+    gunGroup.add(gunGrip);
+
+    // 레드 레이저 빔
+    const laserMat = new THREE.LineBasicMaterial({ color: 0xff1744, transparent: true, opacity: 0.75 });
+    const laserGeo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, 0.05, -0.4),
+      new THREE.Vector3(0, 0.05, -28)
+    ]);
+    const laserLine = new THREE.Line(laserGeo, laserMat);
+    gunGroup.add(laserLine);
+
+    gunGroup.position.set(0.45, 1.22, 3.65);
+    scene.add(gunGroup);
+
+    let gunRecoilOffset = 0;
+    let gunReloadTilt = 0;
+
+    // =========================================================================
+    // 3D 좀비 생성 및 AI/부위별 피격(Headshot / Bodyshot) 시스템
+    // =========================================================================
+    const zombies = [];
+    const bloodParticles = [];
+
+    function createZombie(type = 'walker') {
+      const group = new THREE.Group();
+      const isRunner = type === 'runner';
+      const isBrute = type === 'brute';
+
+      const scale = isBrute ? 1.42 : isRunner ? 0.96 : 1.0;
+      group.scale.set(scale, scale, scale);
+
+      const skinColor = isRunner ? 0x8f2424 : isBrute ? 0x3b4d3b : 0x526352;
+      const clothesColor = isRunner ? 0x2b1111 : isBrute ? 0x1e293b : 0x27303f;
+
+      const skinMat = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.85 });
+      const clothesMat = new THREE.MeshStandardMaterial({ color: clothesColor, roughness: 0.9 });
+
+      // 몸통 (Body Hitbox)
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.92, 0.36), clothesMat);
+      torso.position.y = 1.15;
+      torso.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
+      group.add(torso);
+
+      // 머리 (Headshot Hitbox!)
+      const headGroup = new THREE.Group();
+      headGroup.position.set(0, 1.82, 0.04);
+
+      const headMesh = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.44, 0.42), skinMat);
+      headMesh.userData = { isZombiePart: true, isHead: true, zombieRoot: group };
+      headGroup.add(headMesh);
+
+      // 붉게 빛나는 좀비 안구
+      const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff1744 });
+      const leftEye = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.04, 0.05), eyeMat);
+      leftEye.position.set(-0.09, 0.04, 0.21);
+      const rightEye = leftEye.clone();
+      rightEye.position.x = 0.09;
+      headGroup.add(leftEye, rightEye);
+
+      group.add(headGroup);
+
+      // 앞으로 뻗은 두 팔
+      const armGeo = new THREE.BoxGeometry(0.2, 0.75, 0.2);
+      const leftArm = new THREE.Mesh(armGeo, skinMat);
+      leftArm.position.set(-0.46, 1.32, 0.28);
+      leftArm.rotation.x = -Math.PI / 2.3;
+      leftArm.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
+
+      const rightArm = new THREE.Mesh(armGeo, skinMat);
+      rightArm.position.set(0.46, 1.32, 0.28);
+      rightArm.rotation.x = -Math.PI / 2.3;
+      rightArm.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
+      group.add(leftArm, rightArm);
+
+      // 두 다리
+      const legGeo = new THREE.BoxGeometry(0.25, 0.72, 0.25);
+      const leftLeg = new THREE.Mesh(legGeo, clothesMat);
+      leftLeg.position.set(-0.18, 0.36, 0);
+      const rightLeg = new THREE.Mesh(legGeo, clothesMat);
+      rightLeg.position.set(0.18, 0.36, 0);
+      group.add(leftLeg, rightLeg);
+
+      // 스폰 위치 (복도 저편 안개 속)
+      const spawnX = (Math.random() - 0.5) * 7.2;
+      const spawnZ = -22 - Math.random() * 10;
+      group.position.set(spawnX, 0, spawnZ);
+
+      const maxHp = isBrute ? 220 : isRunner ? 65 : 95;
+      const speed = isBrute ? 1.55 : isRunner ? 3.85 : 2.15 + Math.random() * 0.5;
+
+      const zombieData = {
+        group,
+        headGroup,
+        torso,
+        leftArm,
+        rightArm,
+        leftLeg,
+        rightLeg,
+        type,
+        hp: maxHp,
+        maxHp,
+        speed,
+        walkPhase: Math.random() * Math.PI * 2,
+        hitStagger: 0,
+        dead: false,
+        deathProgress: 0,
+        attackCooldown: 0
+      };
+
+      group.userData.zombie = zombieData;
+      scene.add(group);
+      zombies.push(zombieData);
+    }
+
+    function spawnBloodBurst(pos, count = 18) {
+      const geo = new THREE.BoxGeometry(0.07, 0.07, 0.07);
+      const mat = new THREE.MeshBasicMaterial({ color: 0xb91c1c });
+      for (let i = 0; i < count; i++) {
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.copy(pos);
+        const vel = new THREE.Vector3(
+          (Math.random() - 0.5) * 4.5,
+          Math.random() * 3.2 + 0.5,
+          (Math.random() - 0.5) * 4.5
+        );
+        scene.add(mesh);
+        bloodParticles.push({ mesh, vel, life: 0.65 });
+      }
+    }
+
+    // 웨이브 스폰 관리
+    let zombiesToSpawnInWave = 5;
+    let spawnTimer = 0;
+
+    function startWave(waveNum) {
+      wave = waveNum;
+      hudWave.textContent = wave;
+      zombiesToSpawnInWave = 4 + wave * 3;
+      showBanner(`🧟 WAVE ${wave} APPROACHING!`, '#ef4444');
+    }
+
+    // =========================================================================
+    // 사격(Raycast) 및 장전 로직
+    // =========================================================================
+    const raycaster = new THREE.Raycaster();
+
+    function performShoot() {
+      ensureAudio();
+      if (!gameActive) return;
+
+      const weapon = WEAPONS[currentWeaponKey];
+      if (ammo <= 0) {
+        playSound('empty');
+        reloadPrompt.style.display = 'block';
+        return;
+      }
+
+      ammo--;
+      updateAmmoHUD();
+      playSound(currentWeaponKey);
+
+      // 총구 화염 & 반동 연출
+      muzzleLight.intensity = 4.5;
+      setTimeout(() => { muzzleLight.intensity = 0; }, 55);
+      gunRecoilOffset = weapon.recoil;
+
+      // 크로스헤어 타격 스케일 애니메이션
+      crosshair.style.transform = `translate(-50%, -50%) rotate(${gunRollDeg}deg) scale(1.38)`;
+      setTimeout(() => {
+        crosshair.style.transform = `translate(-50%, -50%) rotate(${gunRollDeg}deg) scale(1)`;
+      }, 80);
+
+      // 피격 판정 대상 메쉬 수집
+      const hitMeshes = [];
+      zombies.forEach((z) => {
+        if (!z.dead) {
+          z.group.traverse((child) => {
+            if (child.isMesh && child.userData.isZombiePart) {
+              hitMeshes.push(child);
+            }
+          });
+        }
+      });
+
+      let hitAny = false;
+
+      for (let i = 0; i < weapon.pellets; i++) {
+        const spreadX = (Math.random() - 0.5) * weapon.spread;
+        const spreadY = (Math.random() - 0.5) * weapon.spread;
+        const ndcX = Math.max(-1, Math.min(1, smoothAimX + spreadX));
+        const ndcY = Math.max(-1, Math.min(1, -smoothAimY + spreadY)); // Three.js NDC Y는 위가 +1
+
+        raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
+        const intersects = raycaster.intersectObjects(hitMeshes, false);
+
+        if (intersects.length > 0) {
+          hitAny = true;
+          const hit = intersects[0];
+          const isHead = hit.object.userData.isHead;
+          const zRoot = hit.object.userData.zombieRoot;
+          const zombie = zRoot.userData.zombie;
+
+          if (zombie && !zombie.dead) {
+            const dmg = weapon.damage * (isHead ? weapon.headMultiplier : 1.0);
+            zombie.hp -= dmg;
+            zombie.hitStagger = 0.22;
+            zRoot.position.z -= 0.28; // 넉백
+
+            spawnBloodBurst(hit.point, isHead ? 26 : 12);
+
+            if (isHead) {
+              playSound('headshot');
+              showBanner('💥 CRITICAL HEADSHOT!', '#ffab00');
+            }
+
+            if (zombie.hp <= 0) {
+              zombie.dead = true;
+              if (isHead) {
+                zombie.headGroup.visible = false; // 헤드샷 처치 시 머리 파괴!
+              }
+              combo++;
+              const pts = (isHead ? 250 : 100) * combo;
+              score += pts;
+              hudScore.textContent = score.toLocaleString();
+              hudCombo.textContent = `x${combo}`;
+              playSound('zombie_groan');
+            }
+          }
+        }
+      }
+
+      if (!hitAny && weapon.pellets === 1) {
+        combo = 1;
+        hudCombo.textContent = 'x1';
+      }
+    }
+
+    function performReload(methodText = 'RELOADED!') {
+      ensureAudio();
+      const weapon = WEAPONS[currentWeaponKey];
+      if (ammo === weapon.maxAmmo) return;
+
+      ammo = weapon.maxAmmo;
+      updateAmmoHUD();
+      playSound('reload');
+
+      gunReloadTilt = 0.85; // 3D 총기 슬라이드 꺾기 모션
+      reloadFlash.style.borderColor = 'rgba(0, 230, 118, 0.75)';
+      setTimeout(() => {
+        reloadFlash.style.borderColor = 'rgba(0, 230, 118, 0)';
+      }, 180);
+
+      showBanner(`🔄 ${methodText}`, '#00e676');
+    }
+
+    // =========================================================================
+    // 모니터 9점 정밀 캘리브레이션 시스템 (3x3 그리드 측정 & 에임 체험 모드)
+    // =========================================================================
+    const calibOverlay = document.getElementById('calibOverlay');
+    const calibTitle = document.getElementById('calibTitle');
+    const calibSub = document.getElementById('calibSub');
+    const calibTarget = document.getElementById('calibTarget');
+    const calibStepBadge = document.getElementById('calibStepBadge');
+    const calibVerifyPanel = document.getElementById('calibVerifyPanel');
+    const btnConfirmStartGame = document.getElementById('btnConfirmStartGame');
+    const btnRestartCalib = document.getElementById('btnRestartCalib');
+    const btnCalibStart = document.getElementById('btnCalibStart');
+
+    // 9개 측정 포인트 정의 (모니터 3x3)
+    const CALIB_GRID = [
+      { name: '좌측 상단', xPct: 15, yPct: 18 },
+      { name: '상단 중앙', xPct: 50, yPct: 18 },
+      { name: '우측 상단', xPct: 85, yPct: 18 },
+      { name: '좌측 중앙', xPct: 15, yPct: 50 },
+      { name: '모니터 정중앙', xPct: 50, yPct: 50 },
+      { name: '우측 중앙', xPct: 85, yPct: 50 },
+      { name: '좌측 하단', xPct: 15, yPct: 82 },
+      { name: '하단 중앙', xPct: 50, yPct: 82 },
+      { name: '우측 하단', xPct: 85, yPct: 82 }
+    ];
+
+    // 세션별 실시간 모니터 캘리브레이션 파라미터 (localStorage 자동 저장 배제!)
+    let monitorCalib = {
+      centerYaw: 0,
+      centerPitch: 0,
+      yawHalfSpan: 24,
+      pitchHalfSpan: 16
+    };
+
+    let isCalibrating = false;
+    let isVerifyingAim = false;
+    let calibIndex = 0;
+    let recordedPoints = [];
+    let lastAimYaw = 0;
+    let lastAimPitch = 0;
+
+    function openCalibration() {
+      ensureAudio();
+      isCalibrating = true;
+      isVerifyingAim = false;
+      calibIndex = 0;
+      recordedPoints = [];
+      calibOverlay.style.display = 'block';
+      calibTarget.style.display = 'flex';
+      calibVerifyPanel.style.display = 'none';
+      updateTargetPosition();
+      playSound('empty');
+    }
+
+    function updateTargetPosition() {
+      const pt = CALIB_GRID[calibIndex];
+      calibTarget.style.left = `${pt.xPct}%`;
+      calibTarget.style.top = `${pt.yPct}%`;
+      calibStepBadge.textContent = `${calibIndex + 1} / 9`;
+      calibTitle.textContent = `🎯 [${calibIndex + 1} / 9단계] [${pt.name}] 과녁 조준`;
+      calibSub.innerHTML = `아이폰 총구로 <b>[${pt.name}] 과녁</b>을 겨누고 <b>화면을 터치(사격)</b>하세요!`;
+    }
+
+    function advanceCalibration(shotYaw, shotPitch) {
+      if (!isCalibrating) return false;
+
+      // 현재 포인트 각도 기록
+      recordedPoints.push({
+        grid: CALIB_GRID[calibIndex],
+        yaw: shotYaw,
+        pitch: shotPitch
+      });
+
+      playSound('headshot');
+
+      calibIndex++;
+      if (calibIndex < CALIB_GRID.length) {
+        updateTargetPosition();
+        return true;
+      }
+
+      // 9점 측정 완료! 모니터 크기와 시야각(FOV) 정밀 계산
+      isCalibrating = false;
+      isVerifyingAim = true;
+      calibTarget.style.display = 'none';
+
+      // 좌측 열(0,3,6), 중앙 열(1,4,7), 우측 열(2,5,8)
+      const leftYaw = (recordedPoints[0].yaw + recordedPoints[3].yaw + recordedPoints[6].yaw) / 3;
+      const centerColYaw = (recordedPoints[1].yaw + recordedPoints[4].yaw + recordedPoints[7].yaw) / 3;
+      const rightYaw = (recordedPoints[2].yaw + recordedPoints[5].yaw + recordedPoints[8].yaw) / 3;
+
+      // 상단 행(0,1,2), 중앙 행(3,4,5), 하단 행(6,7,8)
+      const topPitch = (recordedPoints[0].pitch + recordedPoints[1].pitch + recordedPoints[2].pitch) / 3;
+      const midRowPitch = (recordedPoints[3].pitch + recordedPoints[4].pitch + recordedPoints[5].pitch) / 3;
+      const bottomPitch = (recordedPoints[6].pitch + recordedPoints[7].pitch + recordedPoints[8].pitch) / 3;
+
+      const calcHalfYaw = Math.max(8, ((rightYaw - centerColYaw) + (centerColYaw - leftYaw)) / 2);
+      const calcHalfPitch = Math.max(6, ((bottomPitch - midRowPitch) + (midRowPitch - topPitch)) / 2);
+
+      monitorCalib = {
+        centerYaw: centerColYaw,
+        centerPitch: midRowPitch,
+        yawHalfSpan: Math.abs(calcHalfYaw) || 24,
+        pitchHalfSpan: Math.abs(calcHalfPitch) || 16
+      };
+
+      // 에임 체험 모드 돌입
+      calibTitle.textContent = '🎉 9점 캘리브레이션 완료!';
+      calibSub.innerHTML = `좌우 화각: <b>±${monitorCalib.yawHalfSpan.toFixed(1)}°</b> | 상하 화각: <b>±${monitorCalib.pitchHalfSpan.toFixed(1)}°</b><br/>지금 아이폰을 움직여 모니터 구석구석 조준선이 잘 맞는지 <b>에임을 체험</b>해 보세요!`;
+      calibVerifyPanel.style.display = 'flex';
+      playSound('reload');
+      showBanner('🎯 에임 체험 모드 활성! 화면을 겨눠보세요!', '#38bdf8');
+      return true;
+    }
+
+    btnConfirmStartGame.addEventListener('click', (e) => {
+      e.stopPropagation();
+      calibOverlay.style.display = 'none';
+      isVerifyingAim = false;
+      startGame();
+    });
+
+    btnRestartCalib.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openCalibration();
+    });
+
+    btnCalibStart.addEventListener('click', openCalibration);
+
+    calibOverlay.addEventListener('mousedown', (e) => {
+      if (isCalibrating) {
+        advanceCalibration(lastAimYaw, lastAimPitch);
+      }
+    });
+
+    // =========================================================================
+    // Socket.IO 이벤트 수신 (아이폰 -> PC)
+    // =========================================================================
+    socket.on('connect', () => {
+      socket.emit('register_role', 'display');
+    });
+
+    let isPhoneAiming = false;
+
+    socket.on('controller_status', (status) => {
+      if (status.connected) {
+        isPhoneAiming = true;
+        hudConnDot.classList.add('online');
+        hudConnText.textContent = `아이폰 연결됨 (9점 모니터 에임)`;
+        if (!isCalibrating && !isVerifyingAim && !gameActive) {
+          setTimeout(openCalibration, 600);
+        }
+      } else {
+        isPhoneAiming = false;
+        hudConnDot.classList.remove('online');
+        hudConnText.textContent = `아이폰 연결 대기 중 (마우스 조작 가능)`;
+      }
+    });
+
+    socket.on('aim', (data) => {
+      isPhoneAiming = true;
+      if (typeof data.yaw === 'number') {
+        lastAimYaw = data.yaw;
+        lastAimPitch = data.pitch || 0;
+        // 9점 캘리브레이션으로 측정된 정확한 모니터 2D 정규화 매핑!
+        targetAimX = Math.max(-1.15, Math.min(1.15, (lastAimYaw - monitorCalib.centerYaw) / monitorCalib.yawHalfSpan));
+        targetAimY = Math.max(-1.15, Math.min(1.15, -(lastAimPitch - monitorCalib.centerPitch) / monitorCalib.pitchHalfSpan));
+      } else {
+        targetAimX = Math.max(-1, Math.min(1, data.x || 0));
+        targetAimY = Math.max(-1, Math.min(1, data.y || 0));
+      }
+      gunRollDeg = data.roll || 0;
+    });
+
+    socket.on('calibrate', () => {
+      monitorCalib.centerYaw = lastAimYaw;
+      monitorCalib.centerPitch = lastAimPitch;
+      targetAimX = 0;
+      targetAimY = 0;
+      smoothAimX = 0;
+      smoothAimY = 0;
+      gunRollDeg = 0;
+      showBanner('🎯 중앙 영점 리셋 완료!', '#38bdf8');
+    });
+
+    socket.on('shoot', (data) => {
+      const shotYaw = (data && typeof data.yaw === 'number') ? data.yaw : lastAimYaw;
+      const shotPitch = (data && typeof data.pitch === 'number') ? data.pitch : lastAimPitch;
+
+      if (isCalibrating) {
+        advanceCalibration(shotYaw, shotPitch);
+        return;
+      }
+
+      if (isVerifyingAim) {
+        playSound('pistol');
+        showBanner('💥 BANG! 에임이 맞으면 아래 [좀비전 시작]을 누르세요!', '#22c55e');
+        return;
+      }
+
+      if (!gameActive) {
+        startGame();
+      } else {
+        performShoot();
+      }
+    });
+
+    socket.on('reload', (data) => {
+      performReload(data && data.method ? data.method : 'TACTICAL RELOAD!');
+    });
+
+    socket.on('weapon_change', (data) => {
+      if (data && WEAPONS[data.weapon]) {
+        currentWeaponKey = data.weapon;
+        ammo = WEAPONS[currentWeaponKey].maxAmmo;
+        updateAmmoHUD();
+        playSound('reload');
+        showBanner(`🔫 ${WEAPONS[currentWeaponKey].name}`, '#38bdf8');
+      }
+    });
+
+    socket.on('game_action', (data) => {
+      if (data && data.action === 'start_wave' && !gameActive) {
+        startGame();
+      }
+    });
+
+    // PC 마우스 및 키보드(아이폰 연결 중에는 마우스 커서가 에임을 방해하지 않도록 보호)
+    window.addEventListener('mousemove', (e) => {
+      if (isPhoneAiming) return;
+      targetAimX = (e.clientX / window.innerWidth) * 2 - 1;
+      targetAimY = (e.clientY / window.innerHeight) * 2 - 1;
+    });
+
+    window.addEventListener('mousedown', (e) => {
+      if (lobbyModal.style.display !== 'none') return;
+      if (e.target === btnToggleLobby) return;
+      if (e.button === 0) performShoot();
+      else if (e.button === 2) performReload('QUICK RELOAD!');
+    });
+
+    window.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'r' || e.key === 'R') performReload('MANUAL RELOAD!');
+      if (e.key === '1') socket.emit('weapon_change', { weapon: 'pistol' }), currentWeaponKey = 'pistol', ammo = WEAPONS.pistol.maxAmmo, updateAmmoHUD();
+      if (e.key === '2') socket.emit('weapon_change', { weapon: 'shotgun' }), currentWeaponKey = 'shotgun', ammo = WEAPONS.shotgun.maxAmmo, updateAmmoHUD();
+      if (e.key === '3') socket.emit('weapon_change', { weapon: 'magnum' }), currentWeaponKey = 'magnum', ammo = WEAPONS.magnum.maxAmmo, updateAmmoHUD();
+      if (e.key === 'Escape') {
+        lobbyModal.style.display = lobbyModal.style.display === 'none' ? 'flex' : 'none';
+      }
+    });
+
+    function startGame() {
+      ensureAudio();
+      lobbyModal.style.display = 'none';
+      calibOverlay.style.display = 'none';
+      isCalibrating = false;
+      isVerifyingAim = false;
+      if (!gameActive) {
+        gameActive = true;
+        playerHp = 100;
+        score = 0;
+        combo = 1;
+        ammo = WEAPONS[currentWeaponKey].maxAmmo;
+        updateAmmoHUD();
+        updateVitalHUD();
+        startWave(1);
+      }
+    }
+
+    // 로비의 시작 버튼을 누르면 먼저 9점 영점 맞추기를 시작합니다! (좀비 바로 안 나옴!)
+    btnStartGame.addEventListener('click', () => {
+      lobbyModal.style.display = 'none';
+      openCalibration();
+    });
+
+    btnToggleLobby.addEventListener('click', () => {
+      lobbyModal.style.display = lobbyModal.style.display === 'none' ? 'flex' : 'none';
+    });
+
+    // =========================================================================
+    // 메인 게임 루프 (60fps)
+    // =========================================================================
+    let lastTime = performance.now();
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const dt = Math.min(0.1, (now - lastTime) / 1000);
+      lastTime = now;
+
+      drawEcg();
+
+      // 비상등 깜빡임 연출
+      emergencyLight.intensity = 1.3 + Math.sin(now * 0.008) * 0.5;
+
+      // 1. 에임 스무딩 및 화면 크로스헤어 이동
+      smoothAimX += (targetAimX - smoothAimX) * 0.35;
+      smoothAimY += (targetAimY - smoothAimY) * 0.35;
+
+      const screenX = ((smoothAimX + 1) * 0.5) * window.innerWidth;
+      const screenY = ((smoothAimY + 1) * 0.5) * window.innerHeight;
+      crosshair.style.left = `${screenX}px`;
+      crosshair.style.top = `${screenY}px`;
+      crosshair.style.transform = `translate(-50%, -50%) rotate(${gunRollDeg}deg)`;
+
+      // 2. 3D 총기 및 전술 라이트가 아이폰 에임을 실시간으로 바라보도록 회전
+      const targetWorldX = smoothAimX * 7.5;
+      const targetWorldY = 1.6 - smoothAimY * 4.2;
+      flashlightTarget.position.set(targetWorldX, targetWorldY, -10);
+
+      gunRecoilOffset = Math.max(0, gunRecoilOffset - dt * 1.8);
+      gunReloadTilt = Math.max(0, gunReloadTilt - dt * 3.2);
+
+      gunGroup.lookAt(targetWorldX, targetWorldY, -10);
+      gunGroup.rotateZ(THREE.MathUtils.degToRad(-gunRollDeg * 0.65));
+      gunGroup.rotateX(gunRecoilOffset + gunReloadTilt);
+      gunGroup.position.z = 3.65 + gunRecoilOffset * 0.35;
+
+      // 3. 피 파티클 업데이트
+      for (let i = bloodParticles.length - 1; i >= 0; i--) {
+        const p = bloodParticles[i];
+        p.life -= dt;
+        p.vel.y -= 9.8 * dt;
+        p.mesh.position.addScaledVector(p.vel, dt);
+        if (p.life <= 0) {
+          scene.remove(p.mesh);
+          bloodParticles.splice(i, 1);
+        }
+      }
+
+      if (!gameActive) {
+        renderer.render(scene, camera);
+        return;
+      }
+
+      // 4. 좀비 스폰 및 이동/공격 업데이트
+      spawnTimer -= dt;
+      if (zombiesToSpawnInWave > 0 && spawnTimer <= 0 && zombies.filter((z) => !z.dead).length < 7) {
+        const rand = Math.random();
+        const type = rand > 0.82 && wave >= 2 ? 'brute' : rand > 0.55 ? 'runner' : 'walker';
+        createZombie(type);
+        zombiesToSpawnInWave--;
+        spawnTimer = Math.max(0.75, 2.1 - wave * 0.15);
+      }
+
+      let aliveCount = 0;
+      for (let i = zombies.length - 1; i >= 0; i--) {
+        const z = zombies[i];
+        if (z.dead) {
+          z.deathProgress += dt * 2.4;
+          z.group.rotation.x = -Math.min(Math.PI / 2, z.deathProgress * (Math.PI / 2));
+          z.group.position.y = -z.deathProgress * 0.2;
+          if (z.deathProgress >= 1.8) {
+            scene.remove(z.group);
+            zombies.splice(i, 1);
+          }
+          continue;
+        }
+
+        aliveCount++;
+        if (z.hitStagger > 0) {
+          z.hitStagger -= dt;
+          z.torso.rotation.x = -0.25;
+          continue;
+        } else {
+          z.torso.rotation.x = 0;
+        }
+
+        // 플레이어(z = 3.2)를 향해 비틀거리며 전진
+        z.walkPhase += dt * z.speed * 3.2;
+        const sway = Math.sin(z.walkPhase) * 0.12;
+        z.group.rotation.z = sway * 0.45;
+        z.leftLeg.rotation.x = Math.sin(z.walkPhase) * 0.6;
+        z.rightLeg.rotation.x = -Math.sin(z.walkPhase) * 0.6;
+        z.leftArm.rotation.x = -Math.PI / 2.3 + Math.cos(z.walkPhase) * 0.18;
+        z.rightArm.rotation.x = -Math.PI / 2.3 - Math.cos(z.walkPhase) * 0.18;
+
+        // 플레이어 중앙 쪽으로 서서히 수렴하며 전진
+        const dirX = -z.group.position.x * 0.18;
+        z.group.position.x += dirX * dt;
+        z.group.position.z += z.speed * dt;
+
+        // 플레이어 근접 공격 도달 시
+        if (z.group.position.z >= 2.35) {
+          z.group.position.z = 2.35;
+          z.attackCooldown -= dt;
+          if (z.attackCooldown <= 0) {
+            z.attackCooldown = 1.35;
+            playerHp = Math.max(0, playerHp - (z.type === 'brute' ? 24 : 14));
+            updateVitalHUD();
+            playSound('hurt');
+
+            damageVignette.style.opacity = '1';
+            setTimeout(() => { damageVignette.style.opacity = '0'; }, 280);
+
+            if (playerHp <= 0) {
+              showBanner('💀 YOU ARE DEAD - RELOADING WAVE...', '#e11d48');
+              setTimeout(() => {
+                zombies.forEach((zm) => scene.remove(zm.group));
+                zombies.length = 0;
+                playerHp = 100;
+                score = Math.floor(score * 0.5);
+                hudScore.textContent = score.toLocaleString();
+                updateVitalHUD();
+                startWave(wave);
+              }, 2000);
+            }
+          }
+        }
+      }
+
+      // 웨이브 클리어 체크
+      if (zombiesToSpawnInWave === 0 && aliveCount === 0) {
+        startWave(wave + 1);
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    updateAmmoHUD();
+    updateVitalHUD();
+    requestAnimationFrame(animate);
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      showBanner("⚠️ 브라우저 창 크기 변경됨! [C] 키를 눌러 에임을 재보정하세요.", "#f59e0b");
+    });
+  </script>
+</body>
+</html>
