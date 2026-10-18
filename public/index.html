@@ -501,6 +501,126 @@
       cursor: pointer;
     }
 
+    /* 시네마틱 레터박스 상하단 블랙 바 & 3인칭 CCTV HUD */
+    .cinema-bar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      background: #000;
+      z-index: 28;
+      pointer-events: none;
+      height: 0;
+      transition: height 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .cinema-top { top: 0; }
+    .cinema-bottom { bottom: 0; }
+    body.cinema-active .cinema-bar {
+      height: 80px;
+    }
+
+    #cctvHud {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 29;
+      display: none;
+    }
+
+    .cctv-scanlines {
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.22),
+        rgba(0, 0, 0, 0.22) 2px,
+        transparent 2px,
+        transparent 4px
+      );
+      pointer-events: none;
+    }
+
+    .cctv-cam-tag {
+      position: absolute;
+      top: 95px;
+      left: 36px;
+      font-family: monospace;
+      font-size: 15px;
+      font-weight: 900;
+      color: #ef4444;
+      letter-spacing: 2px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-shadow: 0 0 12px rgba(239, 68, 68, 0.9);
+    }
+
+    .cctv-rec-dot {
+      width: 14px;
+      height: 14px;
+      background: #ef4444;
+      border-radius: 50%;
+      box-shadow: 0 0 10px #ef4444;
+      animation: pulseDot 0.75s infinite alternate;
+    }
+
+    @keyframes pulseDot {
+      from { opacity: 0.3; transform: scale(0.85); }
+      to { opacity: 1; transform: scale(1.15); }
+    }
+
+    .cctv-time {
+      position: absolute;
+      top: 95px;
+      right: 36px;
+      font-family: monospace;
+      font-size: 14px;
+      font-weight: 700;
+      color: #38bdf8;
+      letter-spacing: 1.5px;
+      text-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+    }
+
+    .radio-dialogue-box {
+      position: absolute;
+      bottom: 105px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(8, 12, 18, 0.94);
+      border: 1.5px solid #22c55e;
+      border-left: 6px solid #22c55e;
+      border-radius: 16px;
+      padding: 16px 28px;
+      max-width: 820px;
+      width: 90%;
+      box-shadow: 0 12px 45px rgba(0, 0, 0, 0.9);
+      backdrop-filter: blur(10px);
+      animation: slideUpRadio 0.4s ease-out;
+    }
+
+    @keyframes slideUpRadio {
+      from { opacity: 0; transform: translate(-50%, 20px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
+    }
+
+    .radio-speaker {
+      font-size: 13.5px;
+      font-weight: 900;
+      color: #4ade80;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .radio-text {
+      font-size: 16.5px;
+      font-weight: 800;
+      color: #f8fafc;
+      line-height: 1.55;
+      letter-spacing: 0.5px;
+    }
+
     /* 모니터 9점 영점 캘리브레이션 오버레이 */
     #calibOverlay {
       position: fixed;
@@ -832,6 +952,25 @@
   <canvas id="gameCanvas"></canvas>
   <div id="damageVignette"></div>
   <div id="reloadFlash"></div>
+
+  <!-- 시네마틱 레터박스 상하단 블랙 바 -->
+  <div id="cinemaTopBar" class="cinema-bar cinema-top"></div>
+  <div id="cinemaBottomBar" class="cinema-bar cinema-bottom"></div>
+
+  <!-- 3인칭 감시 CCTV HUD & 무전 브리핑 오버레이 -->
+  <div id="cctvHud">
+    <div class="cctv-scanlines"></div>
+    <div class="cctv-cam-tag">
+      <span class="cctv-rec-dot"></span> [REC] CCTV-CAM-03 • SECTOR PASSAGE
+    </div>
+    <div class="cctv-time" id="cctvTimeText">2026-10-19 02:20:00</div>
+    
+    <!-- 무전 대화 자막창 -->
+    <div id="radioDialogueBox" class="radio-dialogue-box">
+      <div class="radio-speaker" id="radioSpeakerName">📻 [전술 지휘부 본부 - 브리핑]</div>
+      <div class="radio-text" id="radioDialogueText">"...격리 구역 돌파 확인. 즉시 실험동으로 전진하라!"</div>
+    </div>
+  </div>
 
   <!-- 4인 멀티플레이어 실시간 크로스헤어 (1P, 2P, 3P, 4P) -->
   <div id="crosshair-p1" class="player-crosshair ch-p1">
@@ -1315,6 +1454,51 @@
         gain.connect(audioCtx.destination);
         osc.start(now);
         osc.stop(now + 0.4);
+      } else if (type === 'radio_beep') {
+        [0, 0.08].forEach((delay, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(idx === 0 ? 1200 : 1760, now + delay);
+          gain.gain.setValueAtTime(0.18, now + delay);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + delay + 0.06);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + delay);
+          osc.stop(now + delay + 0.06);
+        });
+      } else if (type === 'radio_static') {
+        const dur = 0.22;
+        const bufferSize = audioCtx.sampleRate * dur;
+        const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const out = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          out[i] = (Math.random() * 2 - 1) * Math.exp(-i / (audioCtx.sampleRate * 0.16));
+        }
+        const s = audioCtx.createBufferSource();
+        s.buffer = noiseBuffer;
+        const f = audioCtx.createBiquadFilter();
+        f.type = 'bandpass';
+        f.frequency.setValueAtTime(2200, now);
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.16, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + dur);
+        s.connect(f);
+        f.connect(gain);
+        gain.connect(audioCtx.destination);
+        s.start(now);
+      } else if (type === 'bloater_roar') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(75, now);
+        osc.frequency.exponentialRampToValueAtTime(26, now + 0.85);
+        gain.gain.setValueAtTime(0.48, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.85);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.85);
       }
     }
 
@@ -1705,110 +1889,248 @@
       const isBrute = type === 'brute';
       const isCrawler = type === 'crawler';
       const isSpitter = type === 'spitter';
+      const isBloater = type === 'bloater';
 
-      const scale = isBrute ? 1.55 : isRunner ? 0.95 : isCrawler ? 0.92 : 1.05;
+      const scale = isBloater ? 1.6 : isBrute ? 1.55 : isRunner ? 0.95 : isCrawler ? 0.92 : 1.05;
       group.scale.set(scale, scale, scale);
 
-      // 피부/의상 테마
-      const skinColor = isCrawler ? 0x991b1b : isSpitter ? 0x166534 : isRunner ? 0x7f1d1d : isBrute ? 0x334155 : 0x475569;
-      const skinMat = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.8 });
-      const clothesMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 });
+      // 피부/의상 테마 (부패/오염된 질감 색상)
+      const skinColor = isBloater ? 0x5a4a35 : isCrawler ? 0x881337 : isSpitter ? 0x166534 : isRunner ? 0x7f1d1d : isBrute ? 0x334155 : 0x475569;
+      const skinMat = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.75, metalness: 0.1 });
+      const clothesMat = new THREE.MeshStandardMaterial({ color: isBloater ? 0x292524 : 0x0f172a, roughness: 0.9 });
+      const mouthMat = new THREE.MeshBasicMaterial({ color: 0x450a0a });
 
       let torso, headGroup, headMesh;
       let leftArm, rightArm, leftLeg, rightLeg;
 
       if (isCrawler) {
-        // [1] 천장 기습 크롤러 (납작한 4족 보행 에일리언 형태)
-        torso = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.32, 1.1), skinMat);
-        torso.position.y = 0.22;
-        torso.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
-        group.add(torso);
+        // [1] 천장 기습 크롤러 (4족 관절 생체 돌연변이 형태)
+        const crawlerBodyGroup = new THREE.Group();
+        const mainThorax = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.35, 1.0, 10), skinMat);
+        mainThorax.rotation.x = Math.PI / 2;
+        mainThorax.position.y = 0.22;
+        mainThorax.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
+        crawlerBodyGroup.add(mainThorax);
+        torso = mainThorax;
+        group.add(crawlerBodyGroup);
 
         headGroup = new THREE.Group();
         headGroup.position.set(0, 0.35, 0.65);
-        headMesh = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.32, 0.38), skinMat);
+        headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 12), skinMat);
+        headMesh.scale.set(1.1, 0.9, 1.25);
         headMesh.userData = { isZombiePart: true, isHead: true, zombieRoot: group };
         headGroup.add(headMesh);
+
+        // 턱 & 이빨
+        const cJaw = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.08, 0.2), mouthMat);
+        cJaw.position.set(0, -0.1, 0.15);
+        headGroup.add(cJaw);
 
         const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0055 });
-        const eye1 = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.05, 0.06), eyeMat);
-        eye1.position.set(-0.1, 0.05, 0.19);
-        const eye2 = eye1.clone();
-        eye2.position.x = 0.1;
-        headGroup.add(eye1, eye2);
+        [-0.1, 0.1].forEach((ex) => {
+          const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), eyeMat);
+          eye.position.set(ex, 0.05, 0.25);
+          headGroup.add(eye);
+        });
         group.add(headGroup);
 
-        // 4개의 갈퀴 다리
-        const crawlLegGeo = new THREE.BoxGeometry(0.16, 0.65, 0.16);
-        leftArm = new THREE.Mesh(crawlLegGeo, skinMat);
-        leftArm.position.set(-0.45, 0.1, 0.4);
-        leftArm.rotation.z = 0.45;
-        leftArm.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
-
-        rightArm = new THREE.Mesh(crawlLegGeo, skinMat);
-        rightArm.position.set(0.45, 0.1, 0.4);
-        rightArm.rotation.z = -0.45;
-        rightArm.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
-
-        leftLeg = new THREE.Mesh(crawlLegGeo, skinMat);
-        leftLeg.position.set(-0.45, 0.1, -0.4);
-        leftLeg.rotation.z = 0.45;
-        leftLeg.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
-
-        rightLeg = new THREE.Mesh(crawlLegGeo, skinMat);
-        rightLeg.position.set(0.45, 0.1, -0.4);
-        rightLeg.rotation.z = -0.45;
-        rightLeg.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
-
-        group.add(leftArm, rightArm, leftLeg, rightLeg);
-      } else {
-        // [2] 2족 보행 좀비 (워커, 러너, 스피터, 거대 브루트)
-        torso = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.92, 0.36), clothesMat);
-        torso.position.y = 1.15;
-        torso.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
-        group.add(torso);
-
-        // 스피터는 등에 산성 포낭 돌기 부착
-        if (isSpitter) {
-          const sacMat = new THREE.MeshStandardMaterial({ color: 0x4ade80, emissive: 0x22c55e, emissiveIntensity: 0.7 });
-          const sac1 = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), sacMat);
-          sac1.position.set(-0.18, 1.45, -0.22);
-          const sac2 = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 8), sacMat);
-          sac2.position.set(0.15, 1.35, -0.24);
-          group.add(sac1, sac2);
+        // 4개의 2단 관절 갈퀴 다리
+        function makeCrawlLeg(sideX, forwardZ) {
+          const leg = new THREE.Group();
+          const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.45, 8), skinMat);
+          upper.rotation.z = sideX > 0 ? -0.55 : 0.55;
+          upper.position.set(sideX * 0.2, 0.2, 0);
+          const lower = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.035, 0.5, 8), skinMat);
+          lower.rotation.z = sideX > 0 ? 0.75 : -0.75;
+          lower.position.set(sideX * 0.42, 0, 0);
+          leg.add(upper, lower);
+          leg.position.set(sideX * 0.35, 0.1, forwardZ);
+          leg.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
+          return leg;
         }
 
+        leftArm = makeCrawlLeg(-1, 0.35);
+        rightArm = makeCrawlLeg(1, 0.35);
+        leftLeg = makeCrawlLeg(-1, -0.35);
+        rightLeg = makeCrawlLeg(1, -0.35);
+        group.add(leftArm, rightArm, leftLeg, rightLeg);
+
+      } else if (isBloater) {
+        // [2] 뚱뚱한 초대형 탱크 좀비 (Bloater - 거대 복부, 맹독 농포, 느린 이동, 강력한 체력)
+        const bloaterTorsoGroup = new THREE.Group();
+        
+        // 거대하게 팽창된 복부
+        const giantBelly = new THREE.Mesh(new THREE.SphereGeometry(0.68, 16, 16), skinMat);
+        giantBelly.scale.set(1.28, 1.05, 1.25);
+        giantBelly.position.set(0, 1.05, 0.05);
+        giantBelly.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
+        bloaterTorsoGroup.add(giantBelly);
+
+        // 상체 흉부 및 등 곱추
+        const hunchChest = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.62, 0.65, 12), clothesMat);
+        hunchChest.position.set(0, 1.55, -0.05);
+        hunchChest.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
+        bloaterTorsoGroup.add(hunchChest);
+
+        // 온몸에 솟아오른 6개의 초록/노란색 발광 맹독 농포
+        const pustuleMat = new THREE.MeshStandardMaterial({
+          color: 0xca8a04,
+          emissive: 0x84cc16,
+          emissiveIntensity: 0.9,
+          roughness: 0.3
+        });
+        [
+          [-0.35, 1.15, 0.62, 0.18],
+          [0.28, 0.95, 0.68, 0.22],
+          [-0.15, 1.4, 0.55, 0.16],
+          [0.35, 1.6, -0.35, 0.24],
+          [-0.32, 1.55, -0.38, 0.2],
+          [0.05, 0.85, -0.65, 0.25]
+        ].forEach(([px, py, pz, pr]) => {
+          const pus = new THREE.Mesh(new THREE.SphereGeometry(pr, 10, 10), pustuleMat);
+          pus.position.set(px, py, pz);
+          pus.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
+          bloaterTorsoGroup.add(pus);
+        });
+
+        torso = giantBelly;
+        group.add(bloaterTorsoGroup);
+
+        // 비대하고 일그러진 머리
         headGroup = new THREE.Group();
-        headGroup.position.set(0, 1.82, 0.04);
-        headMesh = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.44, 0.42), skinMat);
+        headGroup.position.set(0, 1.88, 0.12);
+        headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.32, 14, 14), skinMat);
+        headMesh.scale.set(1.15, 0.95, 1.1);
         headMesh.userData = { isZombiePart: true, isHead: true, zombieRoot: group };
         headGroup.add(headMesh);
 
-        const eyeMat = new THREE.MeshBasicMaterial({ color: isSpitter ? 0x22c55e : 0xff1744 });
-        const leftEye = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.04, 0.05), eyeMat);
-        leftEye.position.set(-0.09, 0.04, 0.21);
-        const rightEye = leftEye.clone();
-        rightEye.position.x = 0.09;
-        headGroup.add(leftEye, rightEye);
+        // 늘어진 괴물 턱
+        const bJaw = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.14, 0.28), skinMat);
+        bJaw.position.set(0, -0.18, 0.12);
+        bJaw.rotation.x = 0.35;
+        bJaw.userData = { isZombiePart: true, isHead: true, zombieRoot: group };
+        headGroup.add(bJaw);
+
+        const eyeMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+        [-0.11, 0.11].forEach((ex) => {
+          const eye = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), eyeMat);
+          eye.position.set(ex, 0.05, 0.28);
+          headGroup.add(eye);
+        });
         group.add(headGroup);
 
-        const armGeo = new THREE.BoxGeometry(0.2, 0.75, 0.2);
-        leftArm = new THREE.Mesh(armGeo, skinMat);
-        leftArm.position.set(-0.46, 1.32, 0.28);
-        leftArm.rotation.x = -Math.PI / 2.3;
+        // 굵고 거대한 둔기형 팔
+        const bArmGeo = new THREE.CylinderGeometry(0.2, 0.16, 0.82, 10);
+        leftArm = new THREE.Mesh(bArmGeo, skinMat);
+        leftArm.position.set(-0.68, 1.32, 0.25);
+        leftArm.rotation.x = -Math.PI / 2.5;
         leftArm.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
 
-        rightArm = new THREE.Mesh(armGeo, skinMat);
-        rightArm.position.set(0.46, 1.32, 0.28);
-        rightArm.rotation.x = -Math.PI / 2.3;
+        rightArm = new THREE.Mesh(bArmGeo, skinMat);
+        rightArm.position.set(0.68, 1.32, 0.25);
+        rightArm.rotation.x = -Math.PI / 2.5;
         rightArm.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
         group.add(leftArm, rightArm);
 
-        const legGeo = new THREE.BoxGeometry(0.25, 0.72, 0.25);
-        leftLeg = new THREE.Mesh(legGeo, clothesMat);
-        leftLeg.position.set(-0.18, 0.36, 0);
-        rightLeg = new THREE.Mesh(legGeo, clothesMat);
-        rightLeg.position.set(0.18, 0.36, 0);
+        // 육중한 기둥 다리
+        const bLegGeo = new THREE.CylinderGeometry(0.24, 0.22, 0.75, 10);
+        leftLeg = new THREE.Mesh(bLegGeo, clothesMat);
+        leftLeg.position.set(-0.28, 0.38, 0);
+        rightLeg = new THREE.Mesh(bLegGeo, clothesMat);
+        rightLeg.position.set(0.28, 0.38, 0);
+        group.add(leftLeg, rightLeg);
+
+      } else {
+        // [3] 인체 해부학적 2족 보행 좀비 (워커, 러너, 스피터, 거대 브루트)
+        const humanoidTorsoGroup = new THREE.Group();
+
+        // 역삼각형 흉부 (Cylinder)
+        const chestMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.28, 0.52, 12), clothesMat);
+        chestMesh.position.y = 1.38;
+        chestMesh.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
+        humanoidTorsoGroup.add(chestMesh);
+
+        // 부패한 복부 (Cylinder)
+        const abdomenMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.3, 0.42, 12), skinMat);
+        abdomenMesh.position.y = 0.95;
+        abdomenMesh.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
+        humanoidTorsoGroup.add(abdomenMesh);
+
+        torso = chestMesh;
+
+        // 스피터는 등에 산성 포낭 돌기 부착
+        if (isSpitter) {
+          const sacMat = new THREE.MeshStandardMaterial({ color: 0x4ade80, emissive: 0x22c55e, emissiveIntensity: 0.85 });
+          const sac1 = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 10), sacMat);
+          sac1.position.set(-0.18, 1.48, -0.25);
+          const sac2 = new THREE.Mesh(new THREE.SphereGeometry(0.26, 10, 10), sacMat);
+          sac2.position.set(0.15, 1.38, -0.28);
+          humanoidTorsoGroup.add(sac1, sac2);
+        }
+        group.add(humanoidTorsoGroup);
+
+        // 두개골 형태의 머리 (Sphere + 턱)
+        headGroup = new THREE.Group();
+        headGroup.position.set(0, 1.82, 0.04);
+
+        headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.29, 14, 14), skinMat);
+        headMesh.scale.set(0.95, 1.12, 1.0);
+        headMesh.userData = { isZombiePart: true, isHead: true, zombieRoot: group };
+        headGroup.add(headMesh);
+
+        // 벌어진 입 & 턱뼈
+        const jawMesh = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.12, 0.24), skinMat);
+        jawMesh.position.set(0, -0.16, 0.1);
+        jawMesh.rotation.x = 0.28;
+        jawMesh.userData = { isZombiePart: true, isHead: true, zombieRoot: group };
+        headGroup.add(jawMesh);
+
+        const insideMouth = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.06, 0.16), mouthMat);
+        insideMouth.position.set(0, -0.12, 0.1);
+        headGroup.add(insideMouth);
+
+        const eyeMat = new THREE.MeshBasicMaterial({ color: isSpitter ? 0x22c55e : 0xff1744 });
+        [-0.09, 0.09].forEach((ex) => {
+          const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), eyeMat);
+          eye.position.set(ex, 0.05, 0.24);
+          headGroup.add(eye);
+        });
+        group.add(headGroup);
+
+        // 관절형 팔 (어깨 구체 + 원통 팔)
+        function makeArm(sideX) {
+          const armG = new THREE.Group();
+          const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), skinMat);
+          const armCyl = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.075, 0.72, 8), skinMat);
+          armCyl.position.y = -0.32;
+          const hand = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.14, 0.14), skinMat);
+          hand.position.y = -0.68;
+          armG.add(shoulder, armCyl, hand);
+          armG.position.set(sideX * 0.44, 1.45, 0.15);
+          armG.rotation.x = -Math.PI / 2.3;
+          armG.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
+          return armG;
+        }
+
+        leftArm = makeArm(-1);
+        rightArm = makeArm(1);
+        group.add(leftArm, rightArm);
+
+        // 관절형 다리 (허벅지 + 정강이)
+        function makeLeg(sideX) {
+          const legG = new THREE.Group();
+          const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.09, 0.42, 8), clothesMat);
+          thigh.position.y = -0.21;
+          const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.08, 0.42, 8), clothesMat);
+          shin.position.y = -0.58;
+          legG.add(thigh, shin);
+          legG.position.set(sideX * 0.18, 0.76, 0);
+          legG.userData = { isZombiePart: true, isHead: false, zombieRoot: group };
+          return legG;
+        }
+
+        leftLeg = makeLeg(-1);
+        rightLeg = makeLeg(1);
         group.add(leftLeg, rightLeg);
       }
 
@@ -1822,8 +2144,8 @@
         group.rotation.x = Math.PI; // 천장에 거꾸로 매달림
       }
 
-      const maxHp = isBrute ? 260 : isSpitter ? 85 : isRunner ? 65 : isCrawler ? 75 : 100;
-      const speed = isCrawler ? 4.2 : isRunner ? 4.8 : isBrute ? 1.45 : isSpitter ? 2.1 : 2.25 + Math.random() * 0.4;
+      const maxHp = isBloater ? 420 : isBrute ? 260 : isSpitter ? 85 : isRunner ? 70 : isCrawler ? 75 : 100;
+      const speed = isBloater ? 0.85 : isCrawler ? 3.8 : isRunner ? 2.6 : isBrute ? 1.45 : isSpitter ? 2.0 : 2.15 + Math.random() * 0.35;
 
       const zombieData = {
         group,
@@ -1850,6 +2172,11 @@
       group.userData.zombie = zombieData;
       scene.add(group);
       zombies.push(zombieData);
+
+      if (isBloater) {
+        playSound('bloater_roar');
+        showBanner('☣️ [경고] 초중장갑 블로터(탱크) 출현! 화력을 집중하세요!', '#eab308');
+      }
     }
 
     function spawnBloodBurst(pos, count = 18) {
@@ -2603,7 +2930,7 @@
     // =========================================================================
     // 메인 게임 루프 (60fps)
     // =========================================================================
-    // 아케이드 레일 슈터 4대 섹터 & 매 30초 자동 전진 시스템
+    // 아케이드 레일 슈터 4대 섹터 & 매 30초 자동 전진 + 3인칭 CCTV 컷씬 시스템
     // =========================================================================
     const SECTORS = [
       {
@@ -2612,7 +2939,10 @@
         desc: '감염체 사살 및 격리 구역 돌파!',
         cameraZ: 4.5,
         fogColor: 0x05070b,
-        lightColor: 0xdc2626
+        lightColor: 0xdc2626,
+        camCode: 'CAM-01 • SECTOR-A AIRLOCK',
+        radioSpeaker: '📻 [전술 지휘부 본부 - 브리핑]',
+        radioMsg: 'HQ: "요원, 격리 복도 폐쇄 게이트가 열렸다! 즉시 B2 유전자 실험동으로 전진하라!"'
       },
       {
         id: 2,
@@ -2620,15 +2950,21 @@
         desc: '산성 독액 스피터 기습! 시험관 구역을 확보하라!',
         cameraZ: -20.0,
         fogColor: 0x03180c,
-        lightColor: 0x16a34a
+        lightColor: 0x16a34a,
+        camCode: 'CAM-02 • BIO-CULTURE LAB',
+        radioSpeaker: '📻 [전술 지휘부 본부 - 긴급 경고]',
+        radioMsg: 'HQ: "경고! 배양관 파열로 산성 독액체가 살포 중이다! 공중으로 날아오는 독액을 요격하라!"'
       },
       {
         id: 3,
         name: 'SECTOR 3: B3 원자로 용해로 챔버',
-        desc: '경고: 노심 과열! 거대 브루트를 쓰러뜨려라!',
+        desc: '경고: 노심 과열! 거대 브루트 & 블로터를 쓰러뜨려라!',
         cameraZ: -45.0,
         fogColor: 0x180a03,
-        lightColor: 0xea580c
+        lightColor: 0xea580c,
+        camCode: 'CAM-03 • REACTOR CHAMBER',
+        radioSpeaker: '📻 [생존자 통신 네트워크]',
+        radioMsg: '수송팀: "원자로 하층에 초중장갑 변종(블로터)이 이동 중입니다! 화력을 집중하세요!"'
       },
       {
         id: 4,
@@ -2636,7 +2972,10 @@
         desc: '구조 헬기 접안! 최후의 좀비 총공세를 방어하라!',
         cameraZ: -70.0,
         fogColor: 0x030d1a,
-        lightColor: 0x0284c7
+        lightColor: 0x0284c7,
+        camCode: 'CAM-04 • ROOFTOP HELIPAD',
+        radioSpeaker: '📻 [구조 헬기 레스큐-01]',
+        radioMsg: '조종사: "착륙존 접근 중! 구조 헬기가 접안할 때까지 방어선을 사수하라!"'
       }
     ];
 
@@ -2645,26 +2984,55 @@
     let isTransitioningSector = false;
     let sectorTransitionProgress = 0;
     let transitionStartCamZ = 4.5;
+    let transitionStartCamX = 0;
     let transitionTargetCamZ = 4.5;
     let lastStepSoundTime = 0;
 
     const hudSectorTitle = document.getElementById('hudSectorTitle');
     const hudSectorTimer = document.getElementById('hudSectorTimer');
+    const cctvHud = document.getElementById('cctvHud');
+    const radioSpeakerName = document.getElementById('radioSpeakerName');
+    const radioDialogueText = document.getElementById('radioDialogueText');
+    const cctvTimeText = document.getElementById('cctvTimeText');
 
     function advanceToNextSector() {
       if (isTransitioningSector) return;
       currentSectorIdx = (currentSectorIdx + 1) % SECTORS.length;
       const targetSec = SECTORS[currentSectorIdx];
 
+      // 1. 이전 섹터의 모든 남은 좀비 및 독액 투사체 즉시 전량 소멸 (화면 밖/보이지 않는 피격 버그 원천 차단!)
+      zombies.forEach((zm) => scene.remove(zm.group));
+      zombies.length = 0;
+      acidProjectiles.forEach((p) => scene.remove(p.mesh));
+      acidProjectiles.length = 0;
+
       isTransitioningSector = true;
       sectorTransitionProgress = 0;
       transitionStartCamZ = camera.position.z;
+      transitionStartCamX = camera.position.x;
       transitionTargetCamZ = targetSec.cameraZ;
 
-      playSound('sector_alarm');
-      playSound('gate_open');
-      showBanner(`🚨 ${targetSec.name} 전진 이동 중!`, '#f59e0b', 3200);
+      // 2. 무전 비프음 & 무전 노이즈 & 섹터 사이렌 사운드 연출
+      playSound('radio_beep');
+      setTimeout(() => playSound('radio_static'), 180);
+      setTimeout(() => playSound('sector_alarm'), 400);
+      setTimeout(() => playSound('gate_open'), 850);
 
+      // 3. 3인칭 CCTV 감시 카메라 HUD 및 시네마틱 레터박스 활성화
+      document.body.classList.add('cinema-active');
+      if (cctvHud) cctvHud.style.display = 'block';
+      if (radioSpeakerName) radioSpeakerName.textContent = targetSec.radioSpeaker;
+      if (radioDialogueText) radioDialogueText.textContent = targetSec.radioMsg;
+      if (cctvTimeText) {
+        const d = new Date();
+        cctvTimeText.textContent = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+      }
+      const cctvTag = document.querySelector('.cctv-cam-tag');
+      if (cctvTag) {
+        cctvTag.innerHTML = `<span class="cctv-rec-dot"></span> [REC] ${targetSec.camCode}`;
+      }
+
+      showBanner(`🚨 ${targetSec.name} 전진 이동 중!`, '#f59e0b', 3500);
       if (hudSectorTitle) hudSectorTitle.textContent = targetSec.name;
     }
 
@@ -2706,7 +3074,7 @@
         ch.style.transform = `translate(-50%, -50%) rotate(${p.gunRollDeg}deg)`;
       }
 
-      // 2. 아케이드 레일 이동: 매 30초마다 전진 & 카메라 부드러운 글라이딩 및 헤드밥
+      // 2. 아케이드 레일 이동: 매 30초마다 전진 + 3인칭 CCTV 컷씬 & 다이나믹 3D 카메라 워크
       if (gameActive) {
         if (!isTransitioningSector) {
           sectorTimer -= dt;
@@ -2718,31 +3086,48 @@
             advanceToNextSector();
           }
         } else {
-          sectorTransitionProgress += dt / 3.0; // 3초간 전진
+          // 총 4.0초간 전환 (전반부 1.7초: 3인칭 감시 CCTV 컷씬 / 후반부 2.3초: 1인칭 전진 스웁 글라이딩)
+          sectorTransitionProgress += dt / 4.0;
           const p = Math.min(1, sectorTransitionProgress);
-          const easeP = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
 
-          camera.position.z = THREE.MathUtils.lerp(transitionStartCamZ, transitionTargetCamZ, easeP);
+          if (p < 0.42) {
+            // [1단계: 3인칭 CCTV 감시카메라 앵글]
+            // 복도 상단 천장 모서리에서 아래를 내려다보는 시네마틱 뷰
+            const cctvX = 2.8;
+            const cctvY = 4.2;
+            const cctvZ = transitionStartCamZ - 1.8;
+            camera.position.set(cctvX, cctvY, cctvZ);
+            camera.lookAt(0, 1.2, transitionStartCamZ - 12);
+          } else {
+            // [2단계: CCTV 종료 및 1인칭 레일 전진 스웁]
+            document.body.classList.remove('cinema-active');
+            if (cctvHud) cctvHud.style.display = 'none';
 
-          // 걷는 발걸음 헤드밥 (상하좌우 미세 흔들림)
-          const bobPhase = p * Math.PI * 10;
-          camera.position.y = 1.65 + Math.sin(bobPhase) * 0.07;
-          camera.position.x = Math.cos(bobPhase * 0.5) * 0.05;
+            const subP = (p - 0.42) / 0.58; // 0 ~ 1
+            const easeP = subP < 0.5 ? 4 * subP * subP * subP : 1 - Math.pow(-2 * subP + 2, 3) / 2;
 
-          if (now - lastStepSoundTime > 320) {
-            playSound('footstep');
-            lastStepSoundTime = now;
+            camera.position.z = THREE.MathUtils.lerp(transitionStartCamZ, transitionTargetCamZ, easeP);
+
+            // 걷는 발걸음 헤드밥 (상하좌우 미세 흔들림)
+            const bobPhase = subP * Math.PI * 12;
+            camera.position.y = 1.65 + Math.sin(bobPhase) * 0.08;
+            camera.position.x = Math.cos(bobPhase * 0.5) * 0.06;
+            camera.lookAt(0, 1.65, camera.position.z - 12);
+
+            if (now - lastStepSoundTime > 300) {
+              playSound('footstep');
+              lastStepSoundTime = now;
+            }
           }
 
           if (hudSectorTimer) {
-            hudSectorTimer.textContent = `🚨 구역 전진 중...`;
+            hudSectorTimer.textContent = p < 0.42 ? `📹 보안 CCTV 통신 중...` : `🚨 구역 전진 중...`;
           }
 
           if (sectorTransitionProgress >= 1) {
             isTransitioningSector = false;
-            camera.position.z = transitionTargetCamZ;
-            camera.position.y = 1.65;
-            camera.position.x = 0;
+            camera.position.set(0, 1.65, transitionTargetCamZ);
+            camera.lookAt(0, 1.65, transitionTargetCamZ - 12);
             sectorTimer = 30.0;
             const sec = SECTORS[currentSectorIdx];
             emergencyLight.color.setHex(sec.lightColor);
@@ -2787,7 +3172,7 @@
         }
       }
 
-      // 5. 산성 독액 투사체 이동 및 플레이어 피격 판정
+      // 5. 산성 독액 투사체 이동 및 플레이어 피격 판정 (플레이어 뒤로 지나간 투사체는 즉시 소멸!)
       for (let i = acidProjectiles.length - 1; i >= 0; i--) {
         const p = acidProjectiles[i];
         p.life -= dt;
@@ -2795,7 +3180,17 @@
         p.mesh.rotation.x += dt * 4;
         p.mesh.rotation.y += dt * 5;
 
-        if (p.mesh.position.z >= camera.position.z - 0.8) {
+        const projRelZ = p.mesh.position.z - camera.position.z;
+
+        // 플레이어 뒤쪽으로 빗나간 경우 즉시 소멸
+        if (projRelZ > 0.4) {
+          scene.remove(p.mesh);
+          acidProjectiles.splice(i, 1);
+          continue;
+        }
+
+        // 전방에서 플레이어에 직격한 경우에만 데미지
+        if (projRelZ >= -0.8 && projRelZ <= 0.2) {
           playerHp = Math.max(0, playerHp - 16);
           updateVitalHUD();
           playSound('hurt');
@@ -2820,15 +3215,16 @@
         return;
       }
 
-      // 6. 좀비 스폰 (크롤러, 스피터, 러너, 브루트, 워커 다양화)
+      // 6. 좀비 스폰 (섹터 전환 중에는 스폰 정지! 크롤러, 스피터, 러너, 블로터, 브루트, 워커 다양화)
       spawnTimer -= dt;
-      if (zombiesToSpawnInWave > 0 && spawnTimer <= 0 && zombies.filter((z) => !z.dead).length < 7) {
+      if (zombiesToSpawnInWave > 0 && spawnTimer <= 0 && zombies.filter((z) => !z.dead).length < 7 && !isTransitioningSector) {
         const rand = Math.random();
         let type = 'walker';
         if (rand > 0.85) type = 'crawler';
-        else if (rand > 0.68) type = 'spitter';
-        else if (rand > 0.48) type = 'runner';
-        else if (rand > 0.32 && wave >= 2) type = 'brute';
+        else if (rand > 0.70) type = 'spitter';
+        else if (rand > 0.52) type = 'runner';
+        else if (rand > 0.35 && wave >= 2) type = 'bloater'; // 뚱뚱하고 튼튼한 블로터 탱크!
+        else if (rand > 0.20 && wave >= 2) type = 'brute';
         createZombie(type);
         zombiesToSpawnInWave--;
         spawnTimer = Math.max(0.75, 2.1 - wave * 0.15);
@@ -2848,6 +3244,14 @@
           continue;
         }
 
+        // 플레이어 카메라보다 뒤에 위치한 좀비(relZ > 0.3)는 즉시 제거 (보이지 않는 피격 버그 완벽 제거!)
+        const relZ = z.group.position.z - camera.position.z;
+        if (relZ > 0.3) {
+          scene.remove(z.group);
+          zombies.splice(i, 1);
+          continue;
+        }
+
         aliveCount++;
         if (z.hitStagger > 0) {
           z.hitStagger -= dt;
@@ -2863,11 +3267,6 @@
           if (!z.isDropped) {
             z.group.position.y = 4.15;
             z.group.rotation.x = Math.PI;
-            z.leftArm.rotation.x = Math.sin(z.walkPhase) * 0.5;
-            z.rightArm.rotation.x = -Math.sin(z.walkPhase) * 0.5;
-            z.leftLeg.rotation.x = -Math.sin(z.walkPhase) * 0.5;
-            z.rightLeg.rotation.x = Math.sin(z.walkPhase) * 0.5;
-
             if (z.group.position.z >= camera.position.z - 14) {
               z.isDropped = true;
               z.group.position.y = 0.25;
@@ -2878,10 +3277,6 @@
           } else {
             z.group.position.y = 0.25;
             z.group.rotation.x = 0;
-            z.leftArm.rotation.x = Math.sin(z.walkPhase * 1.5) * 0.6;
-            z.rightArm.rotation.x = -Math.sin(z.walkPhase * 1.5) * 0.6;
-            z.leftLeg.rotation.x = -Math.sin(z.walkPhase * 1.5) * 0.6;
-            z.rightLeg.rotation.x = Math.sin(z.walkPhase * 1.5) * 0.6;
           }
           z.group.position.z += z.speed * dt;
           z.group.position.x += (-z.group.position.x * 0.2) * dt;
@@ -2902,12 +3297,27 @@
           }
 
         } else if (z.type === 'runner') {
-          z.walkPhase += dt * z.speed * 3.6;
-          z.leftLeg.rotation.x = Math.sin(z.walkPhase) * 0.75;
-          z.rightLeg.rotation.x = -Math.sin(z.walkPhase) * 0.75;
+          // 적절한 와리가리 속도와 보폭으로 밸런스 조정
+          z.walkPhase += dt * z.speed * 3.2;
+          z.leftLeg.rotation.x = Math.sin(z.walkPhase) * 0.7;
+          z.rightLeg.rotation.x = -Math.sin(z.walkPhase) * 0.7;
           z.leftArm.rotation.x = -Math.PI / 2.3 + Math.cos(z.walkPhase) * 0.35;
           z.rightArm.rotation.x = -Math.PI / 2.3 - Math.cos(z.walkPhase) * 0.35;
-          z.group.position.x = z.baseSpawnX + Math.sin(z.walkPhase * 1.6) * 2.2;
+          z.group.position.x = z.baseSpawnX + Math.sin(z.walkPhase * 1.5) * 1.1; // 1.1m 폭으로 부드럽게 좌우 회피
+          z.group.position.z += z.speed * dt;
+
+        } else if (z.type === 'bloater') {
+          // 뚱뚱한 탱크 좀비: 매우 묵직하고 느린 발걸음 + 좌우 흔들림
+          z.walkPhase += dt * z.speed * 2.0;
+          const bloatSway = Math.sin(z.walkPhase) * 0.08;
+          z.group.rotation.z = bloatSway;
+          z.leftLeg.rotation.x = Math.sin(z.walkPhase) * 0.35;
+          z.rightLeg.rotation.x = -Math.sin(z.walkPhase) * 0.35;
+          z.leftArm.rotation.x = -Math.PI / 2.5 + Math.cos(z.walkPhase) * 0.15;
+          z.rightArm.rotation.x = -Math.PI / 2.5 - Math.cos(z.walkPhase) * 0.15;
+
+          const dirX = -z.group.position.x * 0.12;
+          z.group.position.x += dirX * dt;
           z.group.position.z += z.speed * dt;
 
         } else {
@@ -2924,13 +3334,15 @@
           z.group.position.z += z.speed * dt;
         }
 
-        // 근접 공격 도달 시 (플레이어 카메라 위치 기준)
-        if (z.group.position.z >= camera.position.z - 2.15) {
+        // 근접 공격 도달 시 (플레이어 정면에서만, 화면에 보이는 좀비만 피격!)
+        const relX = z.group.position.x - camera.position.x;
+        if (relZ >= -2.3 && relZ <= -0.15 && Math.abs(relX) < 3.0) {
           z.group.position.z = camera.position.z - 2.15;
           z.attackCooldown -= dt;
           if (z.attackCooldown <= 0) {
             z.attackCooldown = 1.35;
-            playerHp = Math.max(0, playerHp - (z.type === 'brute' ? 24 : 14));
+            const dmg = z.type === 'bloater' ? 32 : z.type === 'brute' ? 24 : 14;
+            playerHp = Math.max(0, playerHp - dmg);
             updateVitalHUD();
             playSound('hurt');
 
@@ -2948,6 +3360,7 @@
                 score = Math.floor(score * 0.5);
                 hudScore.textContent = score.toLocaleString();
                 camera.position.set(0, 1.65, SECTORS[currentSectorIdx].cameraZ);
+                camera.lookAt(0, 1.65, SECTORS[currentSectorIdx].cameraZ - 12);
                 updateVitalHUD();
                 startWave(wave);
               }, 2000);
