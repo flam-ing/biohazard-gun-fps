@@ -909,6 +909,10 @@
     </div>
 
     <div class="score-board">
+      <div class="stat-item" style="text-align: left; min-width: 170px;">
+        <div class="stat-label" id="hudSectorTitle">SECTOR 1: 바이오 격리 복도</div>
+        <div class="stat-value" id="hudSectorTimer" style="font-size: 20px; color: #f59e0b;">⏳ 전진: 30s</div>
+      </div>
       <div class="stat-item">
         <div class="stat-label">WAVE</div>
         <div class="stat-value" id="hudWave">1</div>
@@ -921,21 +925,15 @@
   </div>
 
   <button class="qr-toggle-btn" id="btnToggleLobby">📱 QR 연결 (ESC)</button>
-  <button class="qr-toggle-btn" id="btnCalibStart" style="left: 170px; border: 2px solid #ef4444; color: #fff; background: rgba(220, 38, 38, 0.4); font-weight: 900; font-size: 13.5px; box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);">
-    🎯 9점 영점 다시 맞추기 (단축키: C)
-  </button>
-  <button class="qr-toggle-btn" id="btnQuickCalibStart" style="left: 470px; border-color: #38bdf8; color: #7dd3fc; font-size: 12px;">
-    ⚡ 1초 중앙 영점 (1)
-  </button>
 
-  <!-- 초간단 1초 중앙 영점 & 환경 프리셋 오버레이 -->
+  <!-- [1단계] 모니터 정중앙 영점 맞추기 오버레이 (폰에서 [중앙 영점] 탭 시 완료) -->
   <div id="quickCalibOverlay">
     <div class="quick-calib-banner">
-      <div style="font-size: 26px; font-weight: 900; color: #ef4444; margin-bottom: 6px;">
+      <div style="font-size: 28px; font-weight: 900; color: #ef4444; margin-bottom: 8px;">
         🎯 [1단계] 모니터 정중앙 영점 맞추기
       </div>
-      <div style="font-size: 15px; color: #f1f5f9; line-height: 1.5;">
-        모니터 <b>빨간 중앙 과녁</b>을 편안하게 겨눈 상태에서 <b>아이폰 화면을 탭(사격)</b>하세요!
+      <div style="font-size: 16px; color: #f1f5f9; line-height: 1.5;">
+        스마트폰 총구로 <b>빨간 중앙 과녁</b>을 겨눈 후 <b>스마트폰 화면을 탭</b>하세요!
       </div>
     </div>
 
@@ -943,32 +941,14 @@
     <div class="quick-bullseye">
       <div class="quick-ring"></div>
       <div class="quick-dot"></div>
-      <div style="position: absolute; bottom: -30px; font-size: 14px; font-weight: 900; color: #ef4444; white-space: nowrap;">
-        🎯 모니터 정중앙
+      <div style="position: absolute; bottom: -32px; font-size: 15px; font-weight: 900; color: #ef4444; white-space: nowrap;">
+        🎯 모니터 정중앙 (0, 0)
       </div>
     </div>
 
-    <!-- 하단 플레이어 거리/모니터 크기 프리셋 바 -->
-    <div class="quick-bottom-box">
-      <div class="preset-row">
-        <span class="preset-label">📏 내 환경 선택:</span>
-        <button class="preset-tab-btn active" id="btnPresetDesk" data-preset="desk">
-          💻 책상/노트북 (가까움 50cm, 안정적)
-        </button>
-        <button class="preset-tab-btn" id="btnPresetNormal" data-preset="normal">
-          🖥️ 일반 모니터 (1m 거리)
-        </button>
-        <button class="preset-tab-btn" id="btnPresetTv" data-preset="tv">
-          📺 거실/TV (2m 이상)
-        </button>
-      </div>
-
-      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #94a3b8; padding-top: 4px;">
-        <span>💡 화면의 빨간 조준선(에임)이 과녁 근처로 오도록 편안하게 쥔 후 탭하세요.</span>
-        <button id="btnSwitchTo9Point" style="background: transparent; border: 1px dashed #64748b; color: #94a3b8; border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer;">
-          🎯 정밀 9점 맞추기로 전환 ➔
-        </button>
-      </div>
+    <div style="position: absolute; bottom: 32px; background: rgba(8, 12, 18, 0.92); border: 1.5px solid #334155; border-radius: 14px; padding: 14px 28px; color: #cbd5e1; font-size: 14px; text-align: center; max-width: 580px; line-height: 1.6; box-shadow: 0 4px 20px rgba(0,0,0,0.6);">
+      💡 스마트폰에서 <b>[🎯 중앙 영점 확정]</b>을 탭하면 에임 감도 조절 모드로 바로 진입합니다.<br/>
+      <span style="font-size: 12.5px; color: #94a3b8;">(PC 마우스 조작 불필요 • 모든 컨트롤은 스마트폰 전용)</span>
     </div>
   </div>
 
@@ -1298,6 +1278,43 @@
         gain.connect(audioCtx.destination);
         osc.start(now);
         osc.stop(now + 0.08);
+      } else if (type === 'sector_alarm') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(520, now);
+        osc.frequency.linearRampToValueAtTime(880, now + 0.3);
+        osc.frequency.linearRampToValueAtTime(440, now + 0.6);
+        gain.gain.setValueAtTime(0.22, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.6);
+      } else if (type === 'footstep') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(100, now);
+        osc.frequency.exponentialRampToValueAtTime(32, now + 0.12);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.12);
+      } else if (type === 'gate_open') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(180, now);
+        osc.frequency.linearRampToValueAtTime(320, now + 0.35);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.4);
       }
     }
 
@@ -1519,8 +1536,8 @@
     muzzleLight.position.set(0.35, 1.35, 3.6);
     scene.add(muzzleLight);
 
-    // 바닥 & 복도 기둥 환경 생성
-    const floorGeo = new THREE.PlaneGeometry(36, 60, 12, 12);
+    // 바닥 & 복도 환경 (Z = +15 ~ -95까지 110m 확장)
+    const floorGeo = new THREE.PlaneGeometry(36, 130, 12, 30);
     const floorMat = new THREE.MeshStandardMaterial({
       color: 0x11151c,
       roughness: 0.85,
@@ -1528,33 +1545,92 @@
     });
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
-    floor.position.z = -18;
+    floor.position.z = -40;
     scene.add(floor);
 
-    // 천장 및 복도 기둥들
+    // 천장
+    const ceilingGeo = new THREE.PlaneGeometry(36, 130, 12, 30);
+    const ceilingMat = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.95 });
+    const ceiling = new THREE.Mesh(ceilingGeo, ceilingMat);
+    ceiling.rotation.x = Math.PI / 2;
+    ceiling.position.y = 5.2;
+    ceiling.position.z = -40;
+    scene.add(ceiling);
+
+    // 복도 기둥들 (Z = 8 ~ -85)
     const pillarGeo = new THREE.BoxGeometry(1.1, 5.5, 1.1);
     const pillarMat = new THREE.MeshStandardMaterial({ color: 0x1a202c, roughness: 0.9 });
-    for (let z = -3; z >= -33; z -= 6) {
+    for (let z = 8; z >= -85; z -= 6) {
       [-5.2, 5.2].forEach((x) => {
         const pillar = new THREE.Mesh(pillarGeo, pillarMat);
-        pillar.position.set(x, 2.75, z);
+        pillar.position.set(x, 2.6, z);
         scene.add(pillar);
       });
     }
 
-    // 엄폐물 바리케이드 박스
+    // 엄폐물 바리케이드 박스들
     const crateGeo = new THREE.BoxGeometry(1.4, 1.1, 1.2);
     const crateMat = new THREE.MeshStandardMaterial({ color: 0x2d2318, roughness: 0.95 });
     [
-      [-2.8, 0.55, -8],
-      [3.1, 0.55, -12],
-      [-2.2, 0.55, -19]
+      [-2.8, 0.55, -8], [3.1, 0.55, -12], [-2.2, 0.55, -19],
+      [2.6, 0.55, -30], [-2.7, 0.55, -38], [2.9, 0.55, -55],
+      [-2.4, 0.55, -63]
     ].forEach(([x, y, z]) => {
       const crate = new THREE.Mesh(crateGeo, crateMat);
       crate.position.set(x, y, z);
       crate.rotation.y = (Math.random() - 0.5) * 0.5;
       scene.add(crate);
     });
+
+    // Sector 2: 유전자 배양 튜브 4개 (초록빛 발광 실린더)
+    const tubeGeo = new THREE.CylinderGeometry(0.7, 0.7, 3.2, 16);
+    const tubeMat = new THREE.MeshStandardMaterial({
+      color: 0x22c55e,
+      emissive: 0x15803d,
+      emissiveIntensity: 0.65,
+      transparent: true,
+      opacity: 0.85,
+      roughness: 0.2
+    });
+    [
+      [-3.4, 1.6, -24], [3.4, 1.6, -24],
+      [-3.4, 1.6, -34], [3.4, 1.6, -34]
+    ].forEach(([x, y, z]) => {
+      const tube = new THREE.Mesh(tubeGeo, tubeMat);
+      tube.position.set(x, y, z);
+      scene.add(tube);
+      const tubeLight = new THREE.PointLight(0x22c55e, 1.4, 12);
+      tubeLight.position.set(x, y, z);
+      scene.add(tubeLight);
+    });
+
+    // Sector 3: 원자로 코어 용해로 (주황빛 발광 배기구 및 파이프)
+    const reactorLight = new THREE.PointLight(0xea580c, 2.2, 22);
+    reactorLight.position.set(0, 3.8, -52);
+    scene.add(reactorLight);
+
+    const pipeGeo = new THREE.CylinderGeometry(0.4, 0.4, 10, 12);
+    const pipeMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.3 });
+    [-48, -58].forEach((pz) => {
+      const pipe = new THREE.Mesh(pipeGeo, pipeMat);
+      pipe.rotation.z = Math.PI / 2;
+      pipe.position.set(0, 4.6, pz);
+      scene.add(pipe);
+    });
+
+    // Sector 4: 헬리패드 착륙존 (시안빛 링 및 스포트라이트)
+    const padGeo = new THREE.RingGeometry(3.5, 4.2, 32);
+    const padMat = new THREE.MeshBasicMaterial({ color: 0x0284c7, side: THREE.DoubleSide });
+    const padMesh = new THREE.Mesh(padGeo, padMat);
+    padMesh.rotation.x = -Math.PI / 2;
+    padMesh.position.set(0, 0.05, -74);
+    scene.add(padMesh);
+
+    const heliPadLight = new THREE.SpotLight(0x38bdf8, 2.8, 30, Math.PI / 4, 0.3);
+    heliPadLight.position.set(0, 9, -74);
+    heliPadLight.target.position.set(0, 0, -74);
+    scene.add(heliPadLight);
+    scene.add(heliPadLight.target);
 
     // =========================================================================
     // 우측 하단 1인칭 3D 권총 모델 + 레드 레이저 사이트
@@ -2180,26 +2256,34 @@
       return true;
     }
 
-    if (btnQuickCalibStart) {
-      btnQuickCalibStart.addEventListener('click', openQuickCalibration);
-    }
-    if (btnCalibStart) {
-      btnCalibStart.addEventListener('click', openCalibration);
-    }
-    if (btnSwitchTo9Point) {
-      btnSwitchTo9Point.addEventListener('click', openCalibration);
-    }
-
-    quickCalibOverlay.addEventListener('mousedown', (e) => {
-      if (isQuickCalibrating && !e.target.closest('.quick-bottom-box')) {
-        finishQuickCalibration(lastAimYaw, lastAimPitch);
+    // 폰에서 [🎯 중앙 영점 확정] 탭 시 수신 (PC 마우스 조작 불필요)
+    socket.on('set_center_zero', (data) => {
+      monitorCalib.centerYaw = 0;
+      monitorCalib.centerPitch = 0;
+      targetAimX = 0;
+      targetAimY = 0;
+      smoothAimX = 0;
+      smoothAimY = 0;
+      for (let s = 1; s <= 4; s++) {
+        PLAYERS[s].targetAimX = 0;
+        PLAYERS[s].targetAimY = 0;
+        PLAYERS[s].smoothAimX = 0;
+        PLAYERS[s].smoothAimY = 0;
       }
-    });
-
-    calibOverlay.addEventListener('mousedown', (e) => {
-      if (isCalibrating) {
-        advanceCalibration(lastAimYaw, lastAimPitch);
+      isQuickCalibrating = false;
+      isCalibrating = false;
+      isVerifyingAim = true;
+      if (quickCalibOverlay) quickCalibOverlay.style.display = 'none';
+      if (calibOverlay) calibOverlay.style.display = 'none';
+      if (aimHoverNotice) {
+        aimHoverNotice.style.display = 'block';
+        const detectNotice = document.getElementById('aimDetectResultText');
+        if (detectNotice) {
+          detectNotice.innerHTML = `🎯 <b>중앙 영점 확정 완료! (에임 감도 튜닝 중)</b><br/><span style="font-size: 13px; color: #86efac;">📱 스마트폰 화면에서 감도를 맞추고, 화면을 터치해 시험 사격해 보세요!</span>`;
+        }
       }
+      playSound('reload');
+      showBanner('🎯 중앙 영점 확정 완료! 스마트폰에서 편한 감도를 조절해 보세요.', '#38bdf8');
     });
 
     // =========================================================================
@@ -2466,23 +2550,10 @@
       // 마우스 조준 이동 완전 제거 (에임 조작 금지)
     });
 
+    // PC 마우스로는 조준, 사격, 영점 맞추기를 일절 하지 않음 (100% 스마트폰 전용 조작)
     window.addEventListener('mousedown', (e) => {
-      if (lobbyModal.style.display !== 'none') return;
-      if (e.target === btnToggleLobby || e.target.closest('#quickCalibOverlay')) return;
-      if (isCalibrating) return;
-
-      if (isQuickCalibrating) {
-        finishQuickCalibration(lastAimYaw, lastAimPitch);
-        return;
-      }
-
-      if (isVerifyingAim) {
-        if (e.button === 0) performTestShoot();
-        return;
-      }
-
-      if (e.button === 0) performShoot();
-      else if (e.button === 2) performReload('QUICK RELOAD!');
+      // 마우스 조작 비활성화: 오직 모달 및 메뉴 버튼 클릭만 허용
+      if (e.target.tagName === 'BUTTON') return;
     });
 
     window.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -2532,6 +2603,71 @@
     // =========================================================================
     // 메인 게임 루프 (60fps)
     // =========================================================================
+    // 아케이드 레일 슈터 4대 섹터 & 매 30초 자동 전진 시스템
+    // =========================================================================
+    const SECTORS = [
+      {
+        id: 1,
+        name: 'SECTOR 1: 바이오 격리 복도',
+        desc: '감염체 사살 및 격리 구역 돌파!',
+        cameraZ: 4.5,
+        fogColor: 0x05070b,
+        lightColor: 0xdc2626
+      },
+      {
+        id: 2,
+        name: 'SECTOR 2: B2 유전자 배양 실험동',
+        desc: '산성 독액 스피터 기습! 시험관 구역을 확보하라!',
+        cameraZ: -20.0,
+        fogColor: 0x03180c,
+        lightColor: 0x16a34a
+      },
+      {
+        id: 3,
+        name: 'SECTOR 3: B3 원자로 용해로 챔버',
+        desc: '경고: 노심 과열! 거대 브루트를 쓰러뜨려라!',
+        cameraZ: -45.0,
+        fogColor: 0x180a03,
+        lightColor: 0xea580c
+      },
+      {
+        id: 4,
+        name: 'SECTOR 4: 옥상 긴급 헬리패드',
+        desc: '구조 헬기 접안! 최후의 좀비 총공세를 방어하라!',
+        cameraZ: -70.0,
+        fogColor: 0x030d1a,
+        lightColor: 0x0284c7
+      }
+    ];
+
+    let currentSectorIdx = 0;
+    let sectorTimer = 30.0;
+    let isTransitioningSector = false;
+    let sectorTransitionProgress = 0;
+    let transitionStartCamZ = 4.5;
+    let transitionTargetCamZ = 4.5;
+    let lastStepSoundTime = 0;
+
+    const hudSectorTitle = document.getElementById('hudSectorTitle');
+    const hudSectorTimer = document.getElementById('hudSectorTimer');
+
+    function advanceToNextSector() {
+      if (isTransitioningSector) return;
+      currentSectorIdx = (currentSectorIdx + 1) % SECTORS.length;
+      const targetSec = SECTORS[currentSectorIdx];
+
+      isTransitioningSector = true;
+      sectorTransitionProgress = 0;
+      transitionStartCamZ = camera.position.z;
+      transitionTargetCamZ = targetSec.cameraZ;
+
+      playSound('sector_alarm');
+      playSound('gate_open');
+      showBanner(`🚨 ${targetSec.name} 전진 이동 중!`, '#f59e0b', 3200);
+
+      if (hudSectorTitle) hudSectorTitle.textContent = targetSec.name;
+    }
+
     let lastTime = performance.now();
 
     function animate(now) {
@@ -2570,21 +2706,76 @@
         ch.style.transform = `translate(-50%, -50%) rotate(${p.gunRollDeg}deg)`;
       }
 
-      // 1P 조준에 따라 3D 총기와 플래시라이트 타겟 연동
+      // 2. 아케이드 레일 이동: 매 30초마다 전진 & 카메라 부드러운 글라이딩 및 헤드밥
+      if (gameActive) {
+        if (!isTransitioningSector) {
+          sectorTimer -= dt;
+          if (hudSectorTimer) {
+            hudSectorTimer.textContent = `⏳ 전진: ${Math.max(0, Math.ceil(sectorTimer))}s`;
+          }
+          if (sectorTimer <= 0) {
+            sectorTimer = 30.0;
+            advanceToNextSector();
+          }
+        } else {
+          sectorTransitionProgress += dt / 3.0; // 3초간 전진
+          const p = Math.min(1, sectorTransitionProgress);
+          const easeP = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+
+          camera.position.z = THREE.MathUtils.lerp(transitionStartCamZ, transitionTargetCamZ, easeP);
+
+          // 걷는 발걸음 헤드밥 (상하좌우 미세 흔들림)
+          const bobPhase = p * Math.PI * 10;
+          camera.position.y = 1.65 + Math.sin(bobPhase) * 0.07;
+          camera.position.x = Math.cos(bobPhase * 0.5) * 0.05;
+
+          if (now - lastStepSoundTime > 320) {
+            playSound('footstep');
+            lastStepSoundTime = now;
+          }
+
+          if (hudSectorTimer) {
+            hudSectorTimer.textContent = `🚨 구역 전진 중...`;
+          }
+
+          if (sectorTransitionProgress >= 1) {
+            isTransitioningSector = false;
+            camera.position.z = transitionTargetCamZ;
+            camera.position.y = 1.65;
+            camera.position.x = 0;
+            sectorTimer = 30.0;
+            const sec = SECTORS[currentSectorIdx];
+            emergencyLight.color.setHex(sec.lightColor);
+            emergencyLight.position.set(0, 4.2, sec.cameraZ - 12);
+            scene.fog.color.setHex(sec.fogColor);
+            showBanner(`✅ [${sec.name}] 도착! 방어 개시!`, '#22c55e', 2500);
+          }
+        }
+      }
+
+      // 3. 1P 조준에 따라 3D 총기와 플래시라이트 타겟 연동 (카메라 위치에 완전 동기화)
       const p1 = PLAYERS[1];
-      const targetWorldX = p1.smoothAimX * 7.5;
-      const targetWorldY = 1.6 - p1.smoothAimY * 4.2;
-      flashlightTarget.position.set(targetWorldX, targetWorldY, -10);
+      const targetWorldX = camera.position.x + p1.smoothAimX * 7.5;
+      const targetWorldY = camera.position.y - p1.smoothAimY * 4.2;
+      const targetWorldZ = camera.position.z - 15;
+      flashlightTarget.position.set(targetWorldX, targetWorldY, targetWorldZ);
 
       gunRecoilOffset = Math.max(0, gunRecoilOffset - dt * 1.8);
       gunReloadTilt = Math.max(0, gunReloadTilt - dt * 3.2);
 
-      gunGroup.lookAt(targetWorldX, targetWorldY, -10);
+      gunGroup.position.set(
+        camera.position.x + 0.45,
+        camera.position.y - 0.43,
+        camera.position.z - 0.85 + gunRecoilOffset * 0.35
+      );
+      gunGroup.lookAt(targetWorldX, targetWorldY, targetWorldZ);
       gunGroup.rotateZ(THREE.MathUtils.degToRad(-p1.gunRollDeg * 0.65));
       gunGroup.rotateX(gunRecoilOffset + gunReloadTilt);
-      gunGroup.position.z = 3.65 + gunRecoilOffset * 0.35;
 
-      // 3. 피 파티클 업데이트
+      flashlight.position.set(camera.position.x + 0.3, camera.position.y - 0.25, camera.position.z - 0.3);
+      muzzleLight.position.set(camera.position.x + 0.35, camera.position.y - 0.3, camera.position.z - 0.9);
+
+      // 4. 피 파티클 업데이트
       for (let i = bloodParticles.length - 1; i >= 0; i--) {
         const p = bloodParticles[i];
         p.life -= dt;
@@ -2596,7 +2787,7 @@
         }
       }
 
-      // 4. 산성 독액 투사체 이동 및 플레이어 피격 판정
+      // 5. 산성 독액 투사체 이동 및 플레이어 피격 판정
       for (let i = acidProjectiles.length - 1; i >= 0; i--) {
         const p = acidProjectiles[i];
         p.life -= dt;
@@ -2604,8 +2795,7 @@
         p.mesh.rotation.x += dt * 4;
         p.mesh.rotation.y += dt * 5;
 
-        if (p.mesh.position.z >= 3.6) {
-          // 플레이어 피격!
+        if (p.mesh.position.z >= camera.position.z - 0.8) {
           playerHp = Math.max(0, playerHp - 16);
           updateVitalHUD();
           playSound('hurt');
@@ -2630,15 +2820,15 @@
         return;
       }
 
-      // 5. 좀비 스폰 (크롤러, 스피터, 러너, 브루트, 워커 다양화)
+      // 6. 좀비 스폰 (크롤러, 스피터, 러너, 브루트, 워커 다양화)
       spawnTimer -= dt;
       if (zombiesToSpawnInWave > 0 && spawnTimer <= 0 && zombies.filter((z) => !z.dead).length < 7) {
         const rand = Math.random();
         let type = 'walker';
-        if (rand > 0.85) type = 'crawler';       // 천장 기습 크롤러
-        else if (rand > 0.68) type = 'spitter';  // 원거리 산성액 스피터
-        else if (rand > 0.48) type = 'runner';   // 지그재그 회피 러너
-        else if (rand > 0.32 && wave >= 2) type = 'brute'; // 거대 타이런트
+        if (rand > 0.85) type = 'crawler';
+        else if (rand > 0.68) type = 'spitter';
+        else if (rand > 0.48) type = 'runner';
+        else if (rand > 0.32 && wave >= 2) type = 'brute';
         createZombie(type);
         zombiesToSpawnInWave--;
         spawnTimer = Math.max(0.75, 2.1 - wave * 0.15);
@@ -2669,7 +2859,6 @@
 
         // --- 몬스터 종류별 고유 AI 및 이동 애니메이션 ---
         if (z.type === 'crawler') {
-          // [1] 천장 기습 크롤러
           z.walkPhase += dt * z.speed * 3.5;
           if (!z.isDropped) {
             z.group.position.y = 4.15;
@@ -2679,7 +2868,7 @@
             z.leftLeg.rotation.x = -Math.sin(z.walkPhase) * 0.5;
             z.rightLeg.rotation.x = Math.sin(z.walkPhase) * 0.5;
 
-            if (z.group.position.z >= -10) {
+            if (z.group.position.z >= camera.position.z - 14) {
               z.isDropped = true;
               z.group.position.y = 0.25;
               z.group.rotation.x = 0;
@@ -2698,9 +2887,8 @@
           z.group.position.x += (-z.group.position.x * 0.2) * dt;
 
         } else if (z.type === 'spitter') {
-          // [2] 산성액 원거리 투척 스피터
           z.walkPhase += dt * z.speed * 2.5;
-          if (z.group.position.z < -15.5) {
+          if (z.group.position.z < camera.position.z - 15.5) {
             z.group.position.z += z.speed * dt;
             z.leftLeg.rotation.x = Math.sin(z.walkPhase) * 0.5;
             z.rightLeg.rotation.x = -Math.sin(z.walkPhase) * 0.5;
@@ -2714,7 +2902,6 @@
           }
 
         } else if (z.type === 'runner') {
-          // [3] 지그재그 회피 러너
           z.walkPhase += dt * z.speed * 3.6;
           z.leftLeg.rotation.x = Math.sin(z.walkPhase) * 0.75;
           z.rightLeg.rotation.x = -Math.sin(z.walkPhase) * 0.75;
@@ -2724,7 +2911,6 @@
           z.group.position.z += z.speed * dt;
 
         } else {
-          // [4] 일반 워커 & 거대 브루트
           z.walkPhase += dt * z.speed * 2.8;
           const sway = Math.sin(z.walkPhase) * 0.12;
           z.group.rotation.z = sway * 0.45;
@@ -2738,9 +2924,9 @@
           z.group.position.z += z.speed * dt;
         }
 
-        // 근접 공격 도달 시
-        if (z.group.position.z >= 2.35) {
-          z.group.position.z = 2.35;
+        // 근접 공격 도달 시 (플레이어 카메라 위치 기준)
+        if (z.group.position.z >= camera.position.z - 2.15) {
+          z.group.position.z = camera.position.z - 2.15;
           z.attackCooldown -= dt;
           if (z.attackCooldown <= 0) {
             z.attackCooldown = 1.35;
@@ -2761,6 +2947,7 @@
                 playerHp = 100;
                 score = Math.floor(score * 0.5);
                 hudScore.textContent = score.toLocaleString();
+                camera.position.set(0, 1.65, SECTORS[currentSectorIdx].cameraZ);
                 updateVitalHUD();
                 startWave(wave);
               }, 2000);

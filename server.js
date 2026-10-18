@@ -120,6 +120,8 @@ io.on('connection', (socket) => {
   forwardWithSlot('request_center_reset');
   forwardWithSlot('toggle_test_targets');
   forwardWithSlot('set_angle_span');
+  forwardWithSlot('set_center_zero');
+  forwardWithSlot('ammo_update');
 
   socket.on('game_started', (data) => socket.broadcast.emit('game_started', data));
 
