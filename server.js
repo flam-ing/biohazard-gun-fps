@@ -1,17 +1,19 @@
 const express = require('express');
 const http = require('http');
-const https = require('https');
-const fs = require('fs');
 const path = require('path');
-const os = require('os');
 const { Server } = require('socket.io');
 const QRCode = require('qrcode');
 
 const PORT = process.env.PORT || process.env.HTTP_PORT || 3000;
-const IS_RENDER = Boolean(process.env.RENDER || process.env.PORT);
+const IS_RENDER = Boolean(process.env.RENDER);
+const MAX_PLAYERS = 4;
+// 폰이 잠깐 끊겨도(새로고침, 화면 꺼짐) 같은 자리로 돌아올 수 있게 잠시 자리를 잡아 둡니다.
+const RESERVE_MS = Number(process.env.RESERVE_MS || 15000);
 
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/healthz', (req, res) => res.json({ ok: true }));
 
 app.get('/api/info', async (req, res) => {
   try {
@@ -19,19 +21,12 @@ app.get('/api/info', async (req, res) => {
     const proto = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
     const baseUrl = `${proto}://${host}`;
     const controllerHttpsUrl = `${baseUrl}/controller.html`;
-
     const qrHttpsDataUrl = await QRCode.toDataURL(controllerHttpsUrl, {
       margin: 1,
-      width: 280,
+      width: 320,
       color: { dark: '#000000', light: '#ffffff' }
     });
-
-    res.json({
-      baseUrl,
-      controllerHttpsUrl,
-      qrHttpsDataUrl,
-      isRender: IS_RENDER
-    });
+    res.json({ baseUrl, controllerHttpsUrl, qrHttpsDataUrl, isRender: IS_RENDER });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -39,107 +34,231 @@ app.get('/api/info', async (req, res) => {
 
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, {
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
-  }
+  cors: { origin: '*', methods: ['GET', 'POST'] },
+  pingInterval: 10000,
+  pingTimeout: 8000
 });
 
 const PLAYER_SLOTS = {
-  1: { slot: 1, name: 'P1', color: '#ef4444', label: '🔴 1P (RED)' },
-  2: { slot: 2, name: 'P2', color: '#06b6d4', label: '🔵 2P (BLUE)' },
-  3: { slot: 3, name: 'P3', color: '#eab308', label: '🟡 3P (YELLOW)' },
-  4: { slot: 4, name: 'P4', color: '#22c55e', label: '🟢 4P (GREEN)' }
+  1: { slot: 1, name: '1P', color: '#ff4d5a' },
+  2: { slot: 2, name: '2P', color: '#2ec5ff' },
+  3: { slot: 3, name: '3P', color: '#ffd23f' },
+  4: { slot: 4, name: '4P', color: '#6bf178' }
 };
 
-// socket.id -> playerInfo
-const controllerPlayers = new Map();
+// slot 번호 -> { slot, token, socketId, connected, timer, session }
+const slots = new Map();
+// 폰이 자리를 (다시) 받을 때마다 1씩 올라가는 번호입니다.
+// 화면은 이 번호가 바뀌면 그 폰이 새로 연결됐다고 보고 영점 번호(epoch)를 처음부터 다시 셉니다.
+let sessionCounter = 0;
+// 게임을 돌리는 PC 화면은 하나만 둡니다. 새로 켠 화면이 이어받고, 예전 화면은 쉬게 됩니다.
+let activeDisplayId = null;
+// 마지막으로 화면(PC)이 알려 준 게임 상태. 새로 들어온 폰에게 바로 알려 줍니다.
+let lastGameState = { phase: 'lobby' };
 
-function assignPlayerSlot(socketId) {
-  const usedSlots = new Set([...controllerPlayers.values()].map(p => p.slot));
-  for (let s = 1; s <= 4; s++) {
-    if (!usedSlots.has(s)) {
-      const pInfo = { ...PLAYER_SLOTS[s], id: socketId };
-      controllerPlayers.set(socketId, pInfo);
-      return pInfo;
-    }
-  }
-  const overflow = { slot: 4, name: 'P4', color: '#22c55e', label: '🟢 4P (GREEN)', id: socketId };
-  controllerPlayers.set(socketId, overflow);
-  return overflow;
+// 폰 -> 화면으로만 보내는 이벤트
+const CONTROLLER_EVENTS = [
+  'aim',
+  'shoot',
+  'reload',
+  'center_reset',
+  'calib_begin',
+  'settings',
+  'weapon_change',
+  'start_game'
+];
+// 화면 -> 특정 폰(또는 모든 폰)으로 보내는 이벤트
+const DISPLAY_EVENTS = ['ammo_update', 'game_state', 'hit', 'need_center'];
+
+function publicPlayer(entry) {
+  return { ...PLAYER_SLOTS[entry.slot], connected: entry.connected, session: entry.session };
 }
 
-function getActivePlayers() {
-  return [...controllerPlayers.values()];
+function playerList() {
+  return [...slots.values()].sort((a, b) => a.slot - b.slot).map(publicPlayer);
+}
+
+function hasDisplay() {
+  return Boolean(activeDisplayId && io.sockets.sockets.get(activeDisplayId));
+}
+
+function isActiveDisplay(socket) {
+  return socket.data.role === 'display' && socket.id === activeDisplayId;
+}
+
+function registerDisplay(socket) {
+  if (activeDisplayId && activeDisplayId !== socket.id) {
+    const old = io.sockets.sockets.get(activeDisplayId);
+    if (old) {
+      old.leave('displays');
+      old.data.role = 'display_retired';
+      old.emit('display_replaced');
+      console.log(`[display] 다른 화면이 이어받아 쉬게 함: ${old.id}`);
+    }
+  }
+  activeDisplayId = socket.id;
+  socket.data.role = 'display';
+  socket.join('displays');
+  lastGameState = { phase: 'lobby' };
+  socket.emit('player_list_updated', { players: playerList(), count: slots.size, max: MAX_PLAYERS });
+  io.to('controllers').emit('display_status', { connected: true });
+  // 화면이 새로 켜졌으니 폰들에게 설정(감도, 무기, 영점 상태)을 다시 보내 달라고 합니다.
+  io.to('controllers').emit('display_joined');
+  console.log(`[display] 연결: ${socket.id}`);
+}
+
+function broadcastPlayers() {
+  const payload = { players: playerList(), count: slots.size, max: MAX_PLAYERS };
+  io.to('displays').emit('player_list_updated', payload);
+  io.to('controllers').emit('player_list_updated', payload);
+}
+
+function releaseSlot(slot) {
+  const entry = slots.get(slot);
+  if (!entry) return;
+  clearTimeout(entry.timer);
+  slots.delete(slot);
+}
+
+function cleanToken(token) {
+  if (typeof token !== 'string') return null;
+  const t = token.trim().slice(0, 64);
+  return t.length >= 6 ? t : null;
+}
+
+function registerController(socket, token) {
+  // 같은 소켓이 다시 등록하면 이미 받은 자리를 그대로 돌려줍니다.
+  if (socket.data.slot && slots.get(socket.data.slot)?.socketId === socket.id) {
+    const entry = slots.get(socket.data.slot);
+    socket.emit('player_assigned', { ...publicPlayer(entry), rejoined: true });
+    return;
+  }
+
+  let entry = token ? [...slots.values()].find((e) => e.token === token) : null;
+  let rejoined = false;
+
+  if (entry) {
+    // 같은 폰이 다시 들어온 경우: 이전 소켓이 아직 살아 있으면 자리를 넘겨받습니다.
+    rejoined = true;
+    clearTimeout(entry.timer);
+    if (entry.socketId && entry.socketId !== socket.id) {
+      const old = io.sockets.sockets.get(entry.socketId);
+      if (old) {
+        old.leave(`slot:${entry.slot}`);
+        old.leave('controllers');
+        old.data.slot = null;
+        old.emit('replaced');
+      }
+    }
+  } else {
+    let free = null;
+    for (let s = 1; s <= MAX_PLAYERS; s++) {
+      if (!slots.has(s)) {
+        free = s;
+        break;
+      }
+    }
+    if (!free) {
+      socket.emit('room_full', { max: MAX_PLAYERS, message: '4명이 꽉 찼어요' });
+      console.log(`[full] 5번째 컨트롤러 거절: ${socket.id}`);
+      return;
+    }
+    entry = { slot: free, token: token || `anon-${socket.id}` };
+    slots.set(free, entry);
+  }
+
+  entry.socketId = socket.id;
+  entry.connected = true;
+  entry.timer = null;
+  entry.session = ++sessionCounter;
+  socket.data.slot = entry.slot;
+  socket.join('controllers');
+  socket.join(`slot:${entry.slot}`);
+
+  socket.emit('player_assigned', { ...publicPlayer(entry), rejoined });
+  socket.emit('display_status', { connected: hasDisplay() });
+  socket.emit('game_state', lastGameState);
+  broadcastPlayers();
+  console.log(`[controller] ${entry.slot}P ${rejoined ? '재접속' : '연결'}: ${socket.id}`);
 }
 
 io.on('connection', (socket) => {
-  socket.on('register_role', (role) => {
-    socket.data.role = role;
+  socket.on('register_role', (payload) => {
+    const role = typeof payload === 'string' ? payload : payload && payload.role;
+    const token = cleanToken(payload && payload.token);
+
     if (role === 'controller') {
-      const pInfo = assignPlayerSlot(socket.id);
-      socket.emit('player_assigned', pInfo);
-      io.emit('player_list_updated', {
-        players: getActivePlayers(),
-        count: controllerPlayers.size
-      });
-      console.log(`📱 [${pInfo.label} 건 컨트롤러 연결됨] ID: ${socket.id}`);
+      socket.data.role = 'controller';
+      registerController(socket, token);
     } else if (role === 'display') {
-      socket.emit('player_list_updated', {
-        players: getActivePlayers(),
-        count: controllerPlayers.size
-      });
-      console.log(`🖥️ [PC 게임 화면 연결됨] ID: ${socket.id}`);
+      registerDisplay(socket);
     }
   });
 
-  function forwardWithSlot(eventName) {
-    socket.on(eventName, (data = {}) => {
-      const p = controllerPlayers.get(socket.id);
-      if (p) {
-        data.slot = p.slot;
-        data.color = p.color;
-        data.playerName = p.name;
+  // 폰 -> 화면: 보낸 폰의 자리 정보를 붙여서 화면에만 전달합니다. 다른 폰에는 가지 않습니다.
+  CONTROLLER_EVENTS.forEach((eventName) => {
+    socket.on(eventName, (data) => {
+      if (socket.data.role !== 'controller') return;
+      const slot = socket.data.slot;
+      const entry = slot && slots.get(slot);
+      if (!entry || entry.socketId !== socket.id) return;
+      const payload = data && typeof data === 'object' && !Array.isArray(data) ? { ...data } : {};
+      payload.slot = slot;
+      payload.color = PLAYER_SLOTS[slot].color;
+      payload.playerName = PLAYER_SLOTS[slot].name;
+      payload.session = entry.session;
+      if (eventName === 'aim') {
+        io.to('displays').volatile.emit('aim', payload);
+      } else {
+        io.to('displays').emit(eventName, payload);
       }
-      socket.broadcast.emit(eventName, data);
     });
-  }
+  });
 
-  forwardWithSlot('aim');
-  forwardWithSlot('shoot');
-  forwardWithSlot('reload');
-  forwardWithSlot('calibrate');
-  forwardWithSlot('weapon_change');
-  forwardWithSlot('game_action');
-  forwardWithSlot('sync_state');
-  forwardWithSlot('tuning_mode_start');
-  forwardWithSlot('confirm_start_game');
-  forwardWithSlot('request_recalib');
-  forwardWithSlot('adjust_sens');
-  forwardWithSlot('change_preset');
-  forwardWithSlot('request_center_reset');
-  forwardWithSlot('toggle_test_targets');
-  forwardWithSlot('set_angle_span');
-  forwardWithSlot('set_center_zero');
-  forwardWithSlot('ammo_update');
+  // 화면 -> 특정 자리의 폰
+  socket.on('to_slot', (msg) => {
+    if (!isActiveDisplay(socket) || !msg) return;
+    const slot = Number(msg.slot);
+    if (!PLAYER_SLOTS[slot] || !DISPLAY_EVENTS.includes(msg.event)) return;
+    io.to(`slot:${slot}`).emit(msg.event, msg.data || {});
+  });
 
-  socket.on('game_started', (data) => socket.broadcast.emit('game_started', data));
+  // 화면 -> 모든 폰
+  socket.on('to_controllers', (msg) => {
+    if (!isActiveDisplay(socket) || !msg || !DISPLAY_EVENTS.includes(msg.event)) return;
+    if (msg.event === 'game_state' && msg.data && typeof msg.data.phase === 'string') {
+      lastGameState = { phase: msg.data.phase };
+    }
+    io.to('controllers').emit(msg.event, msg.data || {});
+  });
 
   socket.on('disconnect', () => {
-    if (controllerPlayers.has(socket.id)) {
-      const p = controllerPlayers.get(socket.id);
-      controllerPlayers.delete(socket.id);
-      io.emit('player_list_updated', {
-        players: getActivePlayers(),
-        count: controllerPlayers.size
-      });
-      console.log(`📱 [${p.label} 컨트롤러 연결 해제] ID: ${socket.id}`);
+    if (socket.data.role === 'display' || socket.data.role === 'display_retired') {
+      if (socket.id === activeDisplayId) {
+        activeDisplayId = null;
+        lastGameState = { phase: 'lobby' };
+        io.to('controllers').emit('display_status', { connected: false });
+      }
+      console.log(`[display] 연결 끊김: ${socket.id}`);
+      return;
     }
+    const slot = socket.data.slot;
+    const entry = slot && slots.get(slot);
+    if (!entry || entry.socketId !== socket.id) return;
+    entry.connected = false;
+    entry.socketId = null;
+    entry.timer = setTimeout(() => {
+      releaseSlot(slot);
+      broadcastPlayers();
+      console.log(`[controller] ${slot}P 자리 비움`);
+    }, RESERVE_MS);
+    broadcastPlayers();
+    console.log(`[controller] ${slot}P 연결 끊김 (${RESERVE_MS / 1000}초 동안 자리 유지)`);
   });
 });
 
 httpServer.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n========================================================`);
-  console.log(`🧟 BIOHAZARD FPS 프로덕션 서버 가동 완료! (포트: ${PORT})`);
-  console.log(`========================================================\n`);
+  console.log(`BIOHAZARD SMART-GUN 서버 시작: http://localhost:${httpServer.address().port}`);
 });
+
+module.exports = { httpServer, io };
