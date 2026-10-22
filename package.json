@@ -1,10 +1,13 @@
 {
   "name": "biohazard-gun-fps",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "폰을 총처럼 쓰는 4인 협동 좀비 슈팅 게임",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js",
+    "test": "node scripts/sim-players.js",
+    "test:server": "node scripts/sim-players.js --no-browser",
+    "screens": "node scripts/sim-players.js --screens screenshots"
   },
   "keywords": [],
   "author": "",
@@ -16,5 +19,12 @@
     "qrcode": "^1.5.4",
     "socket.io": "^4.8.4",
     "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^25.16.0",
+    "socket.io-client": "^4.8.4"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

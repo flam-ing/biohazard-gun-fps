@@ -2,801 +2,1103 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>GUN CONTROLLER</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#07090a" />
+  <title>SMART-GUN 컨트롤러</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
   <script src="/socket.io/socket.io.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <style>
+    :root {
+      --bg: #07090a;
+      --surface: #0f1213;
+      --surface-2: #161a1b;
+      --line: rgba(255, 255, 255, 0.09);
+      --line-strong: rgba(255, 255, 255, 0.18);
+      --text: #eef1ee;
+      --muted: #8d9691;
+      --dim: #5d6460;
+      --danger: #ff3b3b;
+      --ok: #59e08a;
+      --warn: #ff9f1c;
+      --pc: #ff4d5a; /* 내 플레이어 색 */
+      --font-display: 'Chakra Petch', 'Noto Sans KR', system-ui, sans-serif;
+      --font-body: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      --r-sm: 10px;
+      --r-md: 14px;
+      --r-lg: 20px;
+      --s1: 4px;
+      --s2: 8px;
+      --s3: 12px;
+      --s4: 16px;
+      --s5: 24px;
+      --s6: 32px;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      user-select: none;
       -webkit-user-select: none;
+      user-select: none;
       -webkit-touch-callout: none;
       -webkit-tap-highlight-color: transparent;
-      touch-action: none;
     }
 
     html, body {
       position: fixed;
       inset: 0;
-      width: 100%;
-      height: 100%;
       overflow: hidden;
-      background: #000000;
-      touch-action: none;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
       overscroll-behavior: none;
-      transition: background-color 0.05s linear;
+      touch-action: manipulation;
+      word-break: keep-all;
     }
 
-    /* 사격 시 전체 화면 빨간색 번쩍 */
-    body.fire-flash {
-      background: #ef4444 !important;
+    button {
+      font: inherit;
+      color: inherit;
+      background: none;
+      border: 0;
+      cursor: pointer;
+      touch-action: manipulation;
     }
 
-    /* 장전 시 전체 화면 파란색 번쩍 */
-    body.reload-flash {
-      background: #2563eb !important;
-    }
-
-    /* 초기 1회 권한 허용 오버레이 */
-    #startOverlay {
+    .screen {
       position: fixed;
       inset: 0;
-      background: #05070a;
-      display: flex;
+      display: none;
       flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      padding: 24px;
-      z-index: 100;
-      text-align: center;
-      color: #f8fafc;
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      padding: calc(var(--safe-top) + var(--s4)) var(--s4) calc(var(--safe-bottom) + var(--s4));
     }
+    .screen.on { display: flex; }
 
-    .start-btn {
-      background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
-      color: #fff;
-      border: none;
-      border-radius: 16px;
-      padding: 20px 32px;
-      font-size: 20px;
-      font-weight: 900;
-      letter-spacing: 1px;
-      box-shadow: 0 8px 30px rgba(220, 38, 38, 0.5);
-      cursor: pointer;
-      margin-top: 24px;
-      width: 100%;
-      max-width: 320px;
-    }
-
-    .guide-box {
-      background: #111827;
-      border: 1px solid #374151;
-      border-radius: 14px;
-      padding: 16px;
-      font-size: 14px;
-      color: #9ca3af;
-      text-align: left;
-      line-height: 1.7;
-      max-width: 320px;
-      width: 100%;
-    }
-
-    /* 하단 미세 상태 인디케이터 (초소형) */
-    #miniStatus {
-      position: fixed;
-      top: 14px;
-      left: 16px;
-      font-size: 11px;
-      color: rgba(255, 255, 255, 0.4);
-      font-family: monospace;
-      pointer-events: none;
-      letter-spacing: 1px;
-      z-index: 50;
-      white-space: nowrap;
-    }
-
-    /* 하단 전용 재장전 터치 바 */
-    #bottomReloadBar {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 25vh;
-      background: linear-gradient(180deg, rgba(14, 165, 233, 0.2) 0%, rgba(2, 132, 199, 0.55) 100%);
-      border-top: 3px solid #38bdf8;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      color: #fff;
-      font-size: 19px;
-      font-weight: 900;
-      letter-spacing: 1px;
-      z-index: 50;
-      box-shadow: 0 -6px 30px rgba(56, 189, 248, 0.35);
-      cursor: pointer;
-    }
-
-    #bottomReloadBar .reload-sub {
+    .kicker {
+      font-family: var(--font-display);
       font-size: 12px;
-      color: #bae6fd;
-      font-weight: 700;
-      margin-top: 4px;
-      opacity: 0.9;
+      font-weight: 600;
+      letter-spacing: 0.24em;
+      color: var(--muted);
+      text-transform: uppercase;
     }
 
-    /* 설정/영점 열기 버튼 (우측 상단 크게 고정) */
-    #btnPhoneOpenSettings {
-      position: fixed;
-      top: 10px;
-      right: 12px;
-      background: rgba(15, 23, 42, 0.95);
-      border: 2px solid #38bdf8;
-      color: #38bdf8;
+    .wordmark {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 34px;
+      letter-spacing: 0.06em;
+      line-height: 1;
+    }
+    .wordmark span { color: var(--danger); }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--s2);
+      width: 100%;
+      min-height: 56px;
+      border-radius: var(--r-md);
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+    .btn-primary { background: var(--text); color: #0a0c0c; }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { background: var(--surface-2); color: var(--dim); }
+    .btn-ghost { border: 1px solid var(--line-strong); color: var(--text); background: var(--surface); }
+    .btn-player { background: var(--pc); color: #0a0c0c; }
+
+    /* ---------- 시작 화면 ---------- */
+    #scrIntro { justify-content: space-between; }
+    .intro-top { padding-top: var(--s6); }
+    .intro-title { margin-top: var(--s3); }
+    .intro-lead {
+      margin-top: var(--s4);
+      font-size: 16px;
+      line-height: 1.6;
+      color: var(--muted);
+    }
+    .howto {
+      margin-top: var(--s5);
+      display: grid;
+      gap: var(--s2);
+    }
+    .howto-row {
+      display: flex;
+      align-items: center;
+      gap: var(--s3);
+      padding: var(--s3) var(--s4);
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r-md);
+      font-size: 15px;
+    }
+    .howto-row b { font-weight: 700; }
+    .howto-key {
+      flex: none;
+      width: 54px;
+      font-family: var(--font-display);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+    }
+    .intro-bottom { display: grid; gap: var(--s3); }
+    .intro-art { flex: 1; display: grid; place-items: center; min-height: 0; padding: var(--s4) 0; }
+    .intro-art svg { width: 100%; max-width: 300px; max-height: 100%; height: auto; color: var(--muted); }
+    .note { font-size: 13px; line-height: 1.55; color: var(--dim); text-align: center; }
+    .err {
+      display: none;
+      padding: var(--s3) var(--s4);
+      border-radius: var(--r-md);
+      background: rgba(255, 59, 59, 0.1);
+      border: 1px solid rgba(255, 59, 59, 0.4);
+      color: #ffb3b3;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .err.on { display: block; }
+
+    /* ---------- 꽉 참 ---------- */
+    #scrFull { justify-content: center; align-items: center; text-align: center; gap: var(--s4); }
+    #scrFull h2 { font-size: 26px; font-weight: 900; }
+    #scrFull p { color: var(--muted); font-size: 15px; line-height: 1.6; }
+    #scrFull .btn { max-width: 320px; margin-top: var(--s3); }
+
+    /* ---------- 상단 바 (영점, 플레이 공통) ---------- */
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: var(--s3);
+      min-height: 48px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--s2);
+      padding: 6px 14px 6px 6px;
+      border-radius: 999px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+    }
+    .badge-num {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--pc);
+      color: #0a0c0c;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 15px;
+    }
+    .badge-text { display: flex; flex-direction: column; line-height: 1.2; }
+    .badge-text b { font-size: 14px; font-weight: 700; }
+    .badge-text small { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--danger); }
+    .dot.ok { background: var(--ok); }
+    .spacer { flex: 1; }
+    .score {
+      text-align: right;
+      font-family: var(--font-display);
+      line-height: 1.1;
+    }
+    .score small { display: block; font-size: 11px; letter-spacing: 0.16em; color: var(--muted); }
+    .score b { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .icon-btn {
+      display: grid;
+      place-items: center;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--surface);
+      border: 1px solid var(--line);
+    }
+    .icon-btn svg { width: 22px; height: 22px; }
+
+    .warn {
+      display: none;
+      margin-top: var(--s3);
+      padding: var(--s3) var(--s4);
+      border-radius: var(--r-md);
+      background: rgba(255, 159, 28, 0.1);
+      border: 1px solid rgba(255, 159, 28, 0.4);
+      color: #ffd29a;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .warn.on { display: block; }
+
+    /* ---------- 영점 화면 ---------- */
+    #scrCenter { touch-action: none; }
+    .center-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: var(--s5);
+    }
+    .center-body h2 { font-size: 24px; font-weight: 900; line-height: 1.4; }
+    .center-body p { font-size: 15px; color: var(--muted); line-height: 1.6; }
+    .reticle {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      border: 2px solid var(--pc);
+      box-shadow: 0 0 40px color-mix(in srgb, var(--pc) 40%, transparent), inset 0 0 30px color-mix(in srgb, var(--pc) 20%, transparent);
+      animation: breathe 1.8s ease-in-out infinite;
+    }
+    .reticle::before, .reticle::after {
+      content: '';
+      position: absolute;
+      background: var(--pc);
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .reticle::before { width: 2px; height: 240px; opacity: 0.5; }
+    .reticle::after { width: 240px; height: 2px; opacity: 0.5; }
+    .reticle i {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--pc);
+      transform: translate(-50%, -50%);
+    }
+    @keyframes breathe {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.04); }
+    }
+    .center-tap {
+      font-family: var(--font-display);
       font-size: 13px;
+      letter-spacing: 0.24em;
+      color: var(--pc);
+      font-weight: 700;
+    }
+
+    /* ---------- 플레이 화면 ---------- */
+    #scrPlay { padding-bottom: 0; gap: var(--s3); }
+    .lobby-card {
+      display: none;
+      gap: var(--s3);
+      padding: var(--s4);
+      border-radius: var(--r-lg);
+      background: var(--surface);
+      border: 1px solid var(--line);
+    }
+    .lobby-card.on { display: grid; }
+    .lobby-card p { font-size: 14px; color: var(--muted); line-height: 1.5; }
+    .lobby-card p b { color: var(--text); font-weight: 700; }
+
+    .trigger {
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: var(--s3);
+      border-radius: var(--r-lg);
+      background:
+        radial-gradient(120% 80% at 50% 40%, color-mix(in srgb, var(--pc) 12%, transparent), transparent 70%),
+        var(--surface);
+      border: 1px solid color-mix(in srgb, var(--pc) 35%, var(--line));
+      touch-action: none;
+      overflow: hidden;
+    }
+    .trigger-label {
+      font-family: var(--font-display);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.3em;
+      color: var(--muted);
+    }
+    .ammo {
+      display: flex;
+      align-items: baseline;
+      gap: var(--s2);
+      font-family: var(--font-display);
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+    .ammo b { font-size: 112px; font-weight: 700; letter-spacing: -0.02em; }
+    .ammo span { font-size: 28px; color: var(--dim); font-weight: 600; }
+    .ammo.low b { color: var(--danger); }
+    .weapon-name { font-size: 15px; font-weight: 700; color: var(--muted); }
+    .pips { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; max-width: 260px; }
+    .pip { width: 8px; height: 20px; border-radius: 2px; background: var(--pc); }
+    .pip.spent { background: var(--surface-2); outline: 1px solid var(--line); }
+    .trigger-hint { font-size: 14px; color: var(--dim); }
+    .empty-hint {
+      display: none;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: var(--danger);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .empty-hint.on { display: block; }
+
+    .reload-strip {
+      flex: none;
+      margin: 0 calc(var(--s4) * -1);
+      padding: var(--s4) var(--s4) calc(var(--safe-bottom) + var(--s4));
+      min-height: 112px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--s3);
+      background: var(--surface-2);
+      border-top: 1px solid var(--line-strong);
+      touch-action: none;
+    }
+    .reload-strip svg { width: 26px; height: 26px; color: var(--muted); }
+    .reload-strip b { font-size: 20px; font-weight: 900; display: block; }
+    .reload-strip small { font-size: 13px; color: var(--muted); }
+
+    #flash {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: var(--pc);
+      opacity: 0;
+      z-index: 50;
+    }
+    #flash.reload { background: #ffffff; }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      top: calc(var(--safe-top) + 100px);
+      transform: translate(-50%, -8px);
       padding: 8px 16px;
       border-radius: 999px;
-      font-weight: 900;
-      z-index: 99999;
-      cursor: pointer;
-      box-shadow: 0 0 16px rgba(56, 189, 248, 0.4);
+      background: var(--text);
+      color: #0a0c0c;
+      font-size: 14px;
+      font-weight: 700;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s, transform 0.15s;
+      z-index: 60;
+      white-space: nowrap;
     }
+    .toast.on { opacity: 1; transform: translate(-50%, 0); }
 
-    /* 1단계: 모니터 정중앙 영점 맞추기 전체 화면 */
-    #centerAlignOverlay {
+    /* ---------- 설정 시트 ---------- */
+    #sheetBackdrop {
       position: fixed;
       inset: 0;
-      background: #04070e;
-      z-index: 90;
-      display: none;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      padding: 24px;
-      text-align: center;
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      background: rgba(0, 0, 0, 0.55);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+      z-index: 70;
     }
-
-    .center-target-btn {
-      width: 220px;
-      height: 220px;
-      border-radius: 50%;
-      background: radial-gradient(circle, #ef4444 0%, #b91c1c 70%, #7f1d1d 100%);
-      border: 5px solid #fecaca;
-      color: #fff;
-      cursor: pointer;
-      box-shadow: 0 0 60px rgba(239, 68, 68, 0.7);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      margin: 24px 0;
-      animation: pulseBtn 1.8s infinite ease-in-out;
-    }
-
-    @keyframes pulseBtn {
-      0%, 100% { transform: scale(1); box-shadow: 0 0 40px rgba(239, 68, 68, 0.6); }
-      50% { transform: scale(1.05); box-shadow: 0 0 70px rgba(239, 68, 68, 0.9); }
-    }
-
-    /* 2단계: 깔끔하고 군더더기 없는 에임 감도 설정 패널 */
-    #phoneTuningPanel {
+    #sheet {
       position: fixed;
-      bottom: 0;
       left: 0;
       right: 0;
-      background: rgba(10, 15, 24, 0.98);
-      border-top: 3px solid #22c55e;
-      border-radius: 24px 24px 0 0;
-      padding: 20px 20px 32px;
-      display: none;
-      flex-direction: column;
-      gap: 14px;
-      z-index: 95;
-      box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.95);
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-      max-height: 80vh;
+      bottom: 0;
+      max-height: 86vh;
       overflow-y: auto;
+      padding: var(--s4) var(--s4) calc(var(--safe-bottom) + var(--s5));
+      background: var(--surface);
+      border-top: 1px solid var(--line-strong);
+      border-radius: var(--r-lg) var(--r-lg) 0 0;
+      transform: translateY(102%);
+      transition: transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+      z-index: 71;
+      display: grid;
+      gap: var(--s4);
+      touch-action: pan-y;
     }
-
-    .btn-clean-preset {
-      background: #0f172a;
-      border: 1.5px solid #334155;
-      color: #94a3b8;
-      font-size: 13px;
-      font-weight: 800;
-      padding: 12px 6px;
-      border-radius: 12px;
-      text-align: center;
-      cursor: pointer;
-    }
-
-    .btn-clean-preset.active {
-      background: rgba(34, 197, 94, 0.2);
-      border-color: #22c55e;
-      color: #4ade80;
-    }
-
-    .btn-phone-action {
-      background: #1e293b;
-      border: 1.5px solid #475569;
-      color: #f1f5f9;
-      border-radius: 12px;
-      padding: 12px 6px;
-      font-size: 13px;
-      font-weight: 800;
-      cursor: pointer;
-      text-align: center;
-    }
-
-    .btn-phone-start {
+    body.sheet-open #sheet { transform: translateY(0); }
+    body.sheet-open #sheetBackdrop { opacity: 1; pointer-events: auto; }
+    .sheet-head { display: flex; align-items: center; justify-content: space-between; }
+    .sheet-head h3 { font-size: 20px; font-weight: 900; }
+    .group { display: grid; gap: var(--s2); }
+    .group-head { display: flex; justify-content: space-between; align-items: baseline; }
+    .group-head label { font-size: 15px; font-weight: 700; }
+    .group-head output { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--pc); font-variant-numeric: tabular-nums; }
+    .group-desc { font-size: 13px; color: var(--dim); }
+    input[type='range'] {
+      -webkit-appearance: none;
+      appearance: none;
       width: 100%;
-      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-      color: #fff;
-      border: none;
-      border-radius: 16px;
-      padding: 18px 14px;
-      font-size: 18px;
-      font-weight: 900;
-      cursor: pointer;
-      box-shadow: 0 6px 25px rgba(34, 197, 94, 0.6);
-      text-align: center;
-      letter-spacing: 0.5px;
+      height: 36px;
+      background: transparent;
+      touch-action: pan-x;
+    }
+    input[type='range']::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: var(--surface-2); }
+    input[type='range']::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 28px;
+      height: 28px;
+      margin-top: -11px;
+      border-radius: 50%;
+      background: var(--pc);
+      border: 3px solid var(--bg);
+    }
+    .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .seg button {
+      min-height: 46px;
+      border-radius: var(--r-sm);
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+    .seg button.on { border-color: var(--pc); color: var(--text); background: color-mix(in srgb, var(--pc) 16%, var(--surface-2)); }
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--s3);
+      min-height: 52px;
+      padding: 0 var(--s4);
+      border-radius: var(--r-md);
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .switch {
+      position: relative;
+      width: 52px;
+      height: 30px;
+      border-radius: 15px;
+      background: var(--bg);
+      border: 1px solid var(--line-strong);
+      flex: none;
+    }
+    .switch::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: transform 0.15s, background 0.15s;
+    }
+    .switch.on { background: color-mix(in srgb, var(--pc) 30%, var(--bg)); border-color: var(--pc); }
+    .switch.on::after { transform: translateX(22px); background: var(--pc); }
+
+    @media (max-height: 700px) {
+      .ammo b { font-size: 84px; }
+      .reload-strip { min-height: 92px; }
+      .intro-top { padding-top: var(--s4); }
     }
   </style>
 </head>
 <body>
-  <!-- 최초 1회 센서 권한 허용 화면 -->
-  <div id="startOverlay">
-    <h1 style="font-size: 24px; color: #ef4444; margin-bottom: 14px;">🔫 스마트폰 건 컨트롤러</h1>
-    <div class="guide-box">
-      • <b>화면 터치</b>: 사격 (빨간색 번쩍 💥)<br/>
-      • <b>화면 아래로 당기기 (Pull)</b>: 슬라이드 장전 🔄<br/>
-      • <b>총구 꺾기 / 손목 스냅</b>: 아케이드 틸트 장전 🔄<br/>
-      • 0발 소진 시 터치해도 자동 재장전됩니다!
-    </div>
-    <button class="start-btn" id="btnActivate">센서 시작 (터치)</button>
-  </div>
-
-  <div id="playerSlotBadge" style="position: fixed; top: 10px; left: 14px; font-size: 13px; font-weight: 900; color: #ef4444; border: 1.5px solid #ef4444; border-radius: 999px; padding: 6px 14px; background: rgba(8, 12, 18, 0.92); z-index: 60; letter-spacing: 0.5px;">🔴 1P 연결 대기 중</div>
-  <button id="btnPhoneOpenSettings">⚙️ 감도/영점</button>
-
-  <!-- 슬라이드 당김 장전 비주얼 인디케이터 -->
-  <div id="slideReloadAnim" style="position: fixed; top: 58px; left: 50%; transform: translateX(-50%) translateY(-20px); background: #38bdf8; color: #020617; font-size: 14px; font-weight: 900; padding: 7px 22px; border-radius: 999px; pointer-events: none; opacity: 0; transition: all 0.16s ease-out; z-index: 99999; box-shadow: 0 0 20px #38bdf8;">
-    🔄 SLIDE RACKED (재장전 완료)
-  </div>
-
-  <!-- [1단계] 모니터 정중앙 영점 맞추기 오버레이 -->
-  <div id="centerAlignOverlay">
-    <div style="font-size: 14px; color: #ef4444; font-weight: 800; letter-spacing: 1px;">[ 1단계 : 모니터 중앙 영점 ]</div>
-    <div style="font-size: 21px; font-weight: 900; color: #fff; margin-top: 8px; line-height: 1.45;">
-      모니터 <b>빨간 중앙 과녁</b>을<br/>편안하게 겨누고 아래를 탭하세요!
-    </div>
-
-    <button class="center-target-btn" id="btnSetCenter">
-      <span style="font-size: 42px;">🎯</span>
-      <span style="font-size: 20px; font-weight: 900;">중앙 영점 확정</span>
-      <span style="font-size: 12px; opacity: 0.85;">(화면 터치)</span>
-    </button>
-
-    <div style="font-size: 13px; color: #94a3b8; max-width: 290px; line-height: 1.5;">
-      💡 스마트폰 총구가 향한 방향이 모니터 정중앙(0, 0)으로 즉시 고정됩니다.
-    </div>
-  </div>
-
-  <!-- [2단계] 군더더기 없이 깔끔한 에임 감도 조절 패널 -->
-  <div id="phoneTuningPanel">
-    <div style="text-align: center;">
-      <div style="font-size: 17px; font-weight: 900; color: #22c55e;">🎯 에임 감도 & 장전 연습</div>
-      <div style="font-size: 12px; color: #94a3b8; margin-top: 3px;">패널 바깥 화면을 터치하면 벽면에 <b>시험 사격</b>됩니다</div>
-    </div>
-
-    <!-- 장전 동작 테스트 가이드 박스 -->
-    <div id="reloadPracticeBox" style="background: rgba(56, 189, 248, 0.12); border: 2px dashed #0284c7; border-radius: 14px; padding: 12px 14px; text-align: center;">
-      <div style="font-size: 14.5px; font-weight: 900; color: #38bdf8;">🔄 [장전 연습] 화면 아래로 당기기 or 총구 꺾기</div>
-      <div style="font-size: 12px; color: #94a3b8; margin: 3px 0 6px;">
-        화면을 <b>아래로 쓱 당기거나</b>, 총구를 아래로 <b>꺾어보세요!</b>
-      </div>
-      <div id="reloadPracticeStatus" style="font-size: 13px; font-weight: 800; color: #7dd3fc;">
-        대기 중: 장전 동작을 테스트해보세요 ➔
+  <!-- 1. 시작 -->
+  <section class="screen on" id="scrIntro">
+    <div class="intro-top">
+      <div class="kicker">Biohazard co-op</div>
+      <div class="wordmark intro-title">SMART<span>-</span>GUN</div>
+      <p class="intro-lead">폰을 총처럼 쥐고, 폰 윗부분을 PC 화면 쪽으로 향하세요.</p>
+      <div class="howto">
+        <div class="howto-row"><span class="howto-key">TAP</span><span>화면을 누르면 <b>사격</b></span></div>
+        <div class="howto-row"><span class="howto-key">SWIPE</span><span>아래로 쓸면 <b>장전</b></span></div>
+        <div class="howto-row"><span class="howto-key">TILT</span><span>총구를 내렸다 올려도 <b>장전</b></span></div>
       </div>
     </div>
-
-    <!-- 3가지 심플 프리셋 -->
-    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
-      <button class="btn-clean-preset" data-sens="0.6">💻 책상(0.6x)</button>
-      <button class="btn-clean-preset active" data-sens="1.0">🖥️ 보통(1.0x)</button>
-      <button class="btn-clean-preset" data-sens="1.8">📺 TV(1.8x)</button>
+    <div class="intro-art" aria-hidden="true">
+      <svg viewBox="0 0 300 150" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="170" y="20" width="118" height="78" rx="6" />
+        <line x1="210" y1="112" x2="248" y2="112" />
+        <line x1="229" y1="98" x2="229" y2="112" />
+        <circle cx="229" cy="59" r="12" stroke="#ff3b3b" />
+        <circle cx="229" cy="59" r="3" fill="#ff3b3b" stroke="none" />
+        <line x1="70" y1="92" x2="214" y2="62" stroke-dasharray="5 7" stroke="#ff3b3b" opacity="0.8" />
+        <g transform="rotate(-12 50 100)">
+          <rect x="14" y="86" width="64" height="30" rx="7" fill="#0f1213" />
+          <line x1="70" y1="93" x2="70" y2="109" />
+        </g>
+      </svg>
     </div>
-
-    <!-- 감도 슬라이더 -->
-    <div style="background: #090d16; border: 1.5px solid #1e293b; border-radius: 14px; padding: 14px 16px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-        <span style="font-size: 14px; font-weight: 800; color: #f8fafc;">조준 감도 배율</span>
-        <span style="font-size: 22px; font-weight: 900; color: #22c55e; font-family: monospace;" id="phoneSensVal">1.00x</span>
-      </div>
-      <input type="range" id="sensSlider" min="0.30" max="3.00" step="0.05" value="1.00" style="width: 100%; height: 28px; accent-color: #22c55e;" />
+    <div class="intro-bottom">
+      <div class="err" id="introErr"></div>
+      <button class="btn btn-primary" id="btnActivate">시작하기</button>
+      <p class="note">iPhone은 "동작 및 방향 접근"을 허용해 주세요.</p>
     </div>
+  </section>
 
-    <!-- 정중앙 영점 리셋 & 좌우 반전 -->
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-      <button id="btnPhoneCenterReset" class="btn-phone-action">
-        🎯 지금 위치를<br/>정중앙으로
-      </button>
-      <button id="btnPhoneInvertX" class="btn-phone-action">
-        ↔️ 좌우 반전: OFF
+  <!-- 2. 자리가 꽉 참 -->
+  <section class="screen" id="scrFull">
+    <div class="kicker">Room full</div>
+    <h2>4명이 꽉 찼어요</h2>
+    <p>한 명이 나가면 자리가 생겨요.<br />잠시 뒤에 다시 눌러 주세요.</p>
+    <button class="btn btn-primary" id="btnRetry">다시 시도</button>
+  </section>
+
+  <!-- 3. 가운데 맞추기 -->
+  <section class="screen" id="scrCenter">
+    <div class="topbar">
+      <div class="badge"><span class="badge-num" data-bind="name">1P</span><span class="badge-text"><b>가운데 맞추기</b><small><span class="dot" data-bind="dot"></span><span data-bind="conn">연결 중</span></small></span></div>
+    </div>
+    <div class="warn" data-bind="sensorWarn"></div>
+    <div class="center-body">
+      <h2>PC 화면 가운데 표적을<br />폰으로 겨누세요</h2>
+      <div class="reticle"><i></i></div>
+      <div class="center-tap">TAP TO LOCK</div>
+      <p>겨눈 채로 아무 곳이나 누르면<br />그 방향이 화면 가운데가 돼요.</p>
+    </div>
+  </section>
+
+  <!-- 4. 플레이 -->
+  <section class="screen" id="scrPlay">
+    <div class="topbar">
+      <div class="badge"><span class="badge-num" data-bind="name">1P</span><span class="badge-text"><b data-bind="phaseText">연습 중</b><small><span class="dot" data-bind="dot"></span><span data-bind="conn">연결 중</span></small></span></div>
+      <div class="spacer"></div>
+      <div class="score"><small>SCORE</small><b id="scoreVal">0</b></div>
+      <button class="icon-btn" id="btnSettings" aria-label="설정">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="17" x2="20" y2="17"/><circle cx="9" cy="7" r="2.5" fill="#0f1213"/><circle cx="15" cy="17" r="2.5" fill="#0f1213"/></svg>
       </button>
     </div>
+    <div class="warn" data-bind="sensorWarn"></div>
 
-    <!-- 빠른 9점 크기 측정 버튼 -->
-    <button id="btnStart9PointQuick" class="btn-phone-action" style="background: rgba(239, 68, 68, 0.14); border-color: #ef4444; color: #fca5a5; font-size: 13.5px; padding: 12px;">
-      📐 [2단계] 빠른 9점 화면 크기 측정 (선택)
-    </button>
+    <div class="lobby-card" id="lobbyCard">
+      <p><b>연습 사격 중이에요.</b> 모두 준비되면 누구든 시작할 수 있어요.</p>
+      <button class="btn btn-player" id="btnStart">게임 시작</button>
+    </div>
 
-    <!-- 최종 승인 & 게임 시작 버튼 -->
-    <button class="btn-phone-start" id="btnPhoneConfirm">🧟 감도/장전 확인 완료! 좀비전 시작 ➔</button>
+    <div class="trigger" id="trigger">
+      <div class="trigger-label">TRIGGER</div>
+      <div class="ammo" id="ammoBox"><b id="ammoVal">12</b><span id="ammoMax">/ 12</span></div>
+      <div class="weapon-name" id="weaponName">권총</div>
+      <div class="pips" id="pips"></div>
+      <div class="empty-hint" id="emptyHint">탄이 없어요. 누르면 장전</div>
+      <div class="trigger-hint">누르면 사격 · 아래로 쓸면 장전</div>
+    </div>
+
+    <div class="reload-strip" id="reloadStrip">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v13"/><path d="M6 11l6 6 6-6"/><path d="M5 21h14"/></svg>
+      <div><b>장전</b><small>여기를 누르거나 화면을 아래로 쓸어요</small></div>
+    </div>
+  </section>
+
+  <!-- 설정 시트 -->
+  <div id="sheetBackdrop"></div>
+  <div id="sheet" role="dialog" aria-label="설정">
+    <div class="sheet-head">
+      <h3>설정</h3>
+      <button class="icon-btn" id="btnCloseSheet" aria-label="닫기">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><label for="sensSlider">감도</label><output id="sensVal">1.00x</output></div>
+      <input type="range" id="sensSlider" min="0.5" max="2" step="0.05" value="1" />
+      <div class="seg" id="sensPresets">
+        <button data-sens="0.7">낮게</button>
+        <button data-sens="1" class="on">보통</button>
+        <button data-sens="1.4">높게</button>
+      </div>
+      <div class="group-desc">화면에서 멀리 앉을수록 높게 하세요.</div>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><label>무기</label></div>
+      <div class="seg" id="weaponSeg">
+        <button data-weapon="pistol" class="on">권총</button>
+        <button data-weapon="shotgun">샷건</button>
+        <button data-weapon="magnum">매그넘</button>
+      </div>
+    </div>
+
+    <button class="row" id="btnInvert"><span>좌우 반대로</span><span class="switch" id="invertSwitch"></span></button>
+    <button class="btn btn-ghost" id="btnRecenter">가운데 다시 맞추기</button>
   </div>
+
+  <div id="flash"></div>
+  <div class="toast" id="toast"></div>
 
   <script>
-    // iOS Safari 확대/스크롤 완전 차단
-    document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
-    document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
-    document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
-    document.addEventListener('gestureend', (e) => e.preventDefault(), { passive: false });
+    // ---------------------------------------------------------------
+    // 기본 설정
+    // ---------------------------------------------------------------
+    const AIM_INTERVAL_MS = 16;      // 조준 값은 최대 약 60번/초만 보냅니다.
+    const RELOAD_COOLDOWN_MS = 600;  // 장전 연타 방지
+    const TILT_DOWN_DEG = -38;       // 이만큼 총구를 내리면 장전 준비
+    const TILT_BACK_DEG = -18;       // 다시 이만큼 올리면 장전
+    const TILT_AFTER_SHOT_MS = 350;  // 쏜 직후의 흔들림으로는 장전하지 않습니다.
+    const SWIPE_RELOAD_PX = 60;
+    const WEAPON_NAMES = { pistol: '권총', shotgun: '샷건', magnum: '매그넘' };
 
-    let lastTouchEnd = 0;
-    document.addEventListener('touchend', (e) => {
-      const now = Date.now();
-      if (now - lastTouchEnd <= 350 && e.cancelable) e.preventDefault();
-      lastTouchEnd = now;
-    }, { passive: false });
+    document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
+    document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
+
+    const $ = (id) => document.getElementById(id);
+    const screens = { intro: $('scrIntro'), full: $('scrFull'), center: $('scrCenter'), play: $('scrPlay') };
+
+    function getToken() {
+      const KEY = 'smartgun-token';
+      try {
+        let t = sessionStorage.getItem(KEY);
+        if (!t) {
+          t = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+          sessionStorage.setItem(KEY, t);
+        }
+        return t;
+      } catch (e) {
+        if (!getToken.mem) getToken.mem = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        return getToken.mem;
+      }
+    }
+
+    const state = {
+      activated: false,
+      screen: 'intro',
+      slot: null,
+      name: '',
+      phase: 'lobby',
+      online: false,
+      displayOnline: false,
+      sens: 1,
+      weapon: 'pistol',
+      invertX: false,
+      ammo: 12,
+      maxAmmo: 12,
+      score: 0,
+      epoch: 0,
+      calibrated: false,
+      sheetOpen: false,
+      gotOrientation: false
+    };
 
     const socket = io({ transports: ['websocket', 'polling'] });
-    const startOverlay = document.getElementById('startOverlay');
-    const btnActivate = document.getElementById('btnActivate');
-    const miniStatus = document.getElementById('miniStatus');
 
-    let mySlot = 1;
-    let myColor = '#ef4444';
-    let myPlayerName = 'P1';
-    let invertX = false;
-
-    const playerSlotBadge = document.getElementById('playerSlotBadge');
-
-    socket.on('player_assigned', (pInfo) => {
-      mySlot = pInfo.slot;
-      myColor = pInfo.color;
-      myPlayerName = pInfo.name;
-      if (playerSlotBadge) {
-        playerSlotBadge.textContent = `${pInfo.label} 건 컨트롤러`;
-        playerSlotBadge.style.color = pInfo.color;
-        playerSlotBadge.style.borderColor = pInfo.color;
-      }
-    });
-
-    // 햅틱 및 사운드
-    function triggerHaptic(type) {
-      if (navigator.vibrate) {
-        if (type === 'shoot') navigator.vibrate(35);
-        else if (type === 'reload') navigator.vibrate([40, 50, 70]);
-      }
+    // ---------------------------------------------------------------
+    // 화면 전환과 표시
+    // ---------------------------------------------------------------
+    let screenShownAt = 0;
+    function showScreen(name) {
+      state.screen = name;
+      screenShownAt = performance.now();
+      Object.entries(screens).forEach(([k, el]) => el.classList.toggle('on', k === name));
+      if (name === 'center') socket.emit('calib_begin', { epoch: state.epoch });
+      if (name !== 'play') closeSheet();
     }
 
-    function flashColor(colorType) {
-      if (colorType === 'shoot') {
-        document.body.style.backgroundColor = myColor || '#ef4444';
-        setTimeout(() => { document.body.style.backgroundColor = '#000000'; }, 70);
-      } else if (colorType === 'reload') {
-        document.body.style.backgroundColor = '#38bdf8';
-        setTimeout(() => {
-          document.body.style.backgroundColor = '#000000';
-          setTimeout(() => {
-            document.body.style.backgroundColor = '#38bdf8';
-            setTimeout(() => { document.body.style.backgroundColor = '#000000'; }, 60);
-          }, 70);
-        }, 90);
+    function bindAll(key, fn) {
+      document.querySelectorAll(`[data-bind="${key}"]`).forEach(fn);
+    }
+
+    function renderStatus() {
+      let text = '서버 연결 중';
+      let ok = false;
+      if (state.online && state.displayOnline) { text = 'PC 연결됨'; ok = true; }
+      else if (state.online) text = 'PC 화면을 켜 주세요';
+      bindAll('conn', (el) => { el.textContent = text; });
+      bindAll('dot', (el) => el.classList.toggle('ok', ok));
+      bindAll('name', (el) => { el.textContent = state.name || '?'; });
+      bindAll('phaseText', (el) => { el.textContent = state.phase === 'playing' ? '전투 중' : '연습 중'; });
+      $('lobbyCard').classList.toggle('on', state.phase !== 'playing');
+      $('btnStart').disabled = !(state.online && state.displayOnline);
+    }
+
+    function renderAmmo() {
+      $('ammoVal').textContent = state.ammo;
+      $('ammoMax').textContent = `/ ${state.maxAmmo}`;
+      $('weaponName').textContent = WEAPON_NAMES[state.weapon] || state.weapon;
+      $('ammoBox').classList.toggle('low', state.ammo <= Math.ceil(state.maxAmmo / 4));
+      $('emptyHint').classList.toggle('on', state.ammo <= 0);
+      const pips = $('pips');
+      if (pips.childElementCount !== state.maxAmmo) {
+        pips.innerHTML = '';
+        for (let i = 0; i < state.maxAmmo; i++) {
+          const d = document.createElement('div');
+          d.className = 'pip';
+          pips.appendChild(d);
+        }
       }
+      [...pips.children].forEach((d, i) => d.classList.toggle('spent', i >= state.ammo));
+      $('scoreVal').textContent = state.score.toLocaleString();
+      document.querySelectorAll('#weaponSeg button').forEach((b) => b.classList.toggle('on', b.dataset.weapon === state.weapon));
     }
 
-    const slideReloadAnim = document.getElementById('slideReloadAnim');
-    const reloadPracticeStatus = document.getElementById('reloadPracticeStatus');
-    const reloadPracticeBox = document.getElementById('reloadPracticeBox');
-
-    function triggerSlideVisual() {
-      if (slideReloadAnim) {
-        slideReloadAnim.style.opacity = '1';
-        slideReloadAnim.style.transform = 'translateX(-50%) translateY(0)';
-        setTimeout(() => {
-          if (slideReloadAnim) {
-            slideReloadAnim.style.opacity = '0';
-            slideReloadAnim.style.transform = 'translateX(-50%) translateY(-20px)';
-          }
-        }, 650);
-      }
-      if (reloadPracticeStatus) {
-        reloadPracticeStatus.textContent = '✅ 장전 인식 성공! (전투 중 언제든 당기거나 꺾어서 장전)';
-        reloadPracticeStatus.style.color = '#4ade80';
-        if (reloadPracticeBox) reloadPracticeBox.style.borderColor = '#22c55e';
-      }
+    function toast(text) {
+      const t = $('toast');
+      t.textContent = text;
+      t.classList.add('on');
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => t.classList.remove('on'), 1100);
     }
 
-    function doReload() {
-      const now = Date.now();
-      if (now - lastReloadTime < 550) return;
-      lastReloadTime = now;
-      socket.emit('reload', { method: 'gesture', slot: mySlot });
-      triggerHaptic('reload');
-      flashColor('reload');
-      triggerSlideVisual();
+    function flash(kind) {
+      const f = $('flash');
+      f.classList.toggle('reload', kind === 'reload');
+      f.getAnimations().forEach((a) => a.cancel());
+      f.animate(
+        kind === 'reload'
+          ? [{ opacity: 0.35 }, { opacity: 0 }, { opacity: 0.25 }, { opacity: 0 }]
+          : [{ opacity: 0.55 }, { opacity: 0 }],
+        { duration: kind === 'reload' ? 260 : 110, easing: 'ease-out' }
+      );
     }
 
-    // 3D 오리엔테이션 계산 (W3C Quaternion 변환 - 짐벌락 및 축 꼬임 100% 제거)
-    const DEG2RAD = Math.PI / 180;
-    const RAD2DEG = 180 / Math.PI;
-
-    const _zAxis = new THREE.Vector3(0, 0, 1);
-    const _xAxis = new THREE.Vector3(1, 0, 0);
-    const _yAxis = new THREE.Vector3(0, 1, 0);
-
-    let baseDir = null;
-    let currentYaw = 0;
-    let currentPitch = 0;
-    let currentRoll = 0;
-    let lastReloadTime = 0;
-    let localAmmo = 12;
-    let maxAmmo = 12;
-    let tiltedAway = false;
-    let currentPhoneSens = 1.0;
-
-    function resetCenterOrientation() {
-      baseDir = null;
-      currentYaw = 0;
-      currentPitch = 0;
+    function vibrate(pattern) {
+      try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) { /* 지원 안 함 */ }
     }
 
-    socket.on('calibrate', resetCenterOrientation);
+    // ---------------------------------------------------------------
+    // 방향 센서 -> 조준 각도 (내 기준 방향에서 얼마나 돌렸는지)
+    // ---------------------------------------------------------------
+    const D2R = Math.PI / 180;
+    const R2D = 180 / Math.PI;
+    let base = null;          // { heading, elev } : 가운데로 정한 방향
+    let last = null;          // 가장 최근 센서 방향
+    let yaw = 0, pitch = 0, roll = 0;
+    let lastAimSent = 0;
+    let lastShotAt = 0;
+    let lastReloadAt = 0;
+    let tiltDownSince = 0;
+
+    function resetBase() {
+      // 지금 이 순간 폰이 가리키는 방향을 가운데로 정합니다.
+      base = last ? { ...last } : null;
+      yaw = 0;
+      pitch = 0;
+      state.epoch += 1;
+    }
 
     function handleOrientation(e) {
       if (e.alpha === null || e.beta === null) return;
-      const alphaRad = (e.alpha || 0) * DEG2RAD;
-      const betaRad = (e.beta || 0) * DEG2RAD;
-      const gammaRad = (e.gamma || 0) * DEG2RAD;
-
-      // W3C DeviceOrientation 회전: Z(alpha) -> X'(beta) -> Y''(gamma)
-      const qZ = new THREE.Quaternion().setFromAxisAngle(_zAxis, alphaRad);
-      const qX = new THREE.Quaternion().setFromAxisAngle(_xAxis, betaRad);
-      const qY = new THREE.Quaternion().setFromAxisAngle(_yAxis, gammaRad);
-      const qDevice = qZ.multiply(qX).multiply(qY);
-
-      // 스마트폰 상단(+Y축, 총구 방향)이 가리키는 3D 벡터
-      const currentDir = new THREE.Vector3(0, 1, 0).applyQuaternion(qDevice);
-
-      if (!baseDir) {
-        baseDir = currentDir.clone();
+      if (!state.gotOrientation) {
+        state.gotOrientation = true;
+        bindAll('sensorWarn', (el) => el.classList.remove('on'));
       }
+      const a = (e.alpha || 0) * D2R;
+      const b = (e.beta || 0) * D2R;
+      // 폰 윗부분(+Y 축)이 가리키는 방향. Z(alpha) -> X(beta) -> Y(gamma) 순서로 돌린 결과입니다.
+      // gamma는 이 축을 바꾸지 않으므로 계산에 필요 없습니다.
+      const dx = -Math.cos(b) * Math.sin(a);
+      const dy = Math.cos(b) * Math.cos(a);
+      const dz = Math.sin(b);
+      const heading = Math.atan2(dx, dy) * R2D;
+      const elev = Math.asin(Math.max(-1, Math.min(1, dz))) * R2D;
+      last = { heading, elev };
+      if (!base) base = { heading, elev };
 
-      // 수평 회전(Yaw)
-      const currentHeading = Math.atan2(currentDir.x, currentDir.y);
-      const baseHeading = Math.atan2(baseDir.x, baseDir.y);
-      let dYawDeg = (currentHeading - baseHeading) * RAD2DEG;
-      if (invertX) dYawDeg = -dYawDeg;
-      dYawDeg = ((dYawDeg + 540) % 360) - 180;
+      let dYaw = ((heading - base.heading + 540) % 360) - 180;
+      if (state.invertX) dYaw = -dYaw;
+      yaw = dYaw;
+      pitch = elev - base.elev;
+      roll = e.gamma || 0;
 
-      // 수직 고도(Pitch)
-      const currentElev = Math.asin(Math.max(-1, Math.min(1, currentDir.z)));
-      const baseElev = Math.asin(Math.max(-1, Math.min(1, baseDir.z)));
-      const dPitchDeg = (currentElev - baseElev) * RAD2DEG;
+      checkTiltReload();
 
-      currentYaw = dYawDeg;
-      currentPitch = dPitchDeg;
-      currentRoll = e.gamma || 0;
-
-      // 아케이드 틸트 장전: 총구를 화면 밖(아래로 내리거나 위로 치켜들기)으로 꺾었다 복귀할 때 즉시 장전!
-      if (currentPitch < -32 || currentPitch > 40) {
-        tiltedAway = true;
-      } else if (tiltedAway) {
-        tiltedAway = false;
-        doReload();
-      }
-
-      socket.emit('aim', {
-        slot: mySlot,
-        yaw: currentYaw,
-        pitch: currentPitch,
-        roll: currentRoll
+      if (!state.slot || state.screen === 'intro' || state.screen === 'full') return;
+      const now = performance.now();
+      if (now - lastAimSent < AIM_INTERVAL_MS) return;
+      lastAimSent = now;
+      socket.volatile.emit('aim', {
+        yaw: Math.round(yaw * 100) / 100,
+        pitch: Math.round(pitch * 100) / 100,
+        roll: Math.round(roll),
+        epoch: state.epoch
       });
     }
 
-    // 모션 흔들기 / 스냅 장전
-    function handleMotion(e) {
-      const rot = e.rotationRate;
-      if (rot) {
-        const a = Math.abs(rot.alpha || 0);
-        const b = Math.abs(rot.beta || 0);
-        const g = Math.abs(rot.gamma || 0);
-        if (a > 220 || b > 220 || g > 250) {
-          doReload();
-        }
-      }
-      const acc = e.acceleration;
-      if (acc) {
-        const total = Math.abs(acc.x || 0) + Math.abs(acc.y || 0) + Math.abs(acc.z || 0);
-        if (total > 22) {
-          doReload();
-        }
+    function checkTiltReload() {
+      if (state.screen !== 'play' || state.sheetOpen) { tiltDownSince = 0; return; }
+      const now = performance.now();
+      if (pitch < TILT_DOWN_DEG) {
+        if (!tiltDownSince) tiltDownSince = now;
+      } else if (pitch > TILT_BACK_DEG && tiltDownSince) {
+        const held = now - tiltDownSince;
+        tiltDownSince = 0;
+        if (held > 120 && now - lastShotAt > TILT_AFTER_SHOT_MS) doReload('tilt');
       }
     }
 
-    // [1단계] 중앙 영점 및 [2단계] 튜닝 패널 요소
-    const centerAlignOverlay = document.getElementById('centerAlignOverlay');
-    const btnSetCenter = document.getElementById('btnSetCenter');
-    const phoneTuningPanel = document.getElementById('phoneTuningPanel');
-    const btnPhoneConfirm = document.getElementById('btnPhoneConfirm');
-    const btnPhoneCenterReset = document.getElementById('btnPhoneCenterReset');
-    const btnPhoneInvertX = document.getElementById('btnPhoneInvertX');
-    const phoneSensVal = document.getElementById('phoneSensVal');
-    const sensSlider = document.getElementById('sensSlider');
-    const btnPhoneOpenSettings = document.getElementById('btnPhoneOpenSettings');
-    const btnStart9PointQuick = document.getElementById('btnStart9PointQuick');
-
-    btnActivate.addEventListener('click', async () => {
-      try {
-        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-          const s = await DeviceOrientationEvent.requestPermission();
-          if (s === 'granted') window.addEventListener('deviceorientation', handleOrientation, true);
-        } else {
-          window.addEventListener('deviceorientation', handleOrientation, true);
-        }
-
-        if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-          const m = await DeviceMotionEvent.requestPermission();
-          if (m === 'granted') window.addEventListener('devicemotion', handleMotion, true);
-        } else {
-          window.addEventListener('devicemotion', handleMotion, true);
-        }
-      } catch (err) {
-        console.warn(err);
-      }
-
-      startOverlay.style.display = 'none';
-      socket.emit('register_role', 'controller');
-
-      // 1단계 중앙 영점 맞추기 화면 활성화
-      centerAlignOverlay.style.display = 'flex';
-      miniStatus.textContent = '🎯 모니터 정중앙 조준 후 화면 탭';
-    });
-
-    // 1단계: 정중앙 영점 확정
-    function lockCenterZero() {
-      resetCenterOrientation();
-      socket.emit('set_center_zero', {
-        slot: mySlot,
-        yaw: 0,
-        pitch: 0
-      });
-      centerAlignOverlay.style.display = 'none';
-      phoneTuningPanel.style.display = 'flex';
-      miniStatus.textContent = '🎯 에임 & 장전 연습 중 • 조절 후 [시작]';
-      triggerHaptic('reload');
-      flashColor('reload');
-    }
-
-    if (btnSetCenter) {
-      btnSetCenter.addEventListener('touchstart', (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        lockCenterZero();
-      }, { passive: false });
-      btnSetCenter.addEventListener('click', (e) => {
-        e.stopPropagation();
-        lockCenterZero();
-      });
-    }
-
-    if (centerAlignOverlay) {
-      centerAlignOverlay.addEventListener('touchstart', (e) => {
-        if (e.target.closest('#btnSetCenter')) return;
-        e.stopPropagation();
-        e.preventDefault();
-        lockCenterZero();
-      }, { passive: false });
-    }
-
-    // 감도 적용 함수
-    function applySensUpdate(val) {
-      currentPhoneSens = Math.max(0.3, Math.min(3.0, +val.toFixed(2)));
-      phoneSensVal.textContent = `${currentPhoneSens.toFixed(2)}x`;
-      if (sensSlider) sensSlider.value = currentPhoneSens;
-      socket.emit('adjust_sens', { sens: currentPhoneSens, slot: mySlot });
-      triggerHaptic('shoot');
-    }
-
-    if (sensSlider) {
-      sensSlider.addEventListener('input', (e) => {
-        e.stopPropagation();
-        applySensUpdate(parseFloat(e.target.value));
-      });
-    }
-
-    // 3가지 심플 프리셋
-    document.querySelectorAll('.btn-clean-preset').forEach((btn) => {
-      const choosePreset = (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        const s = parseFloat(btn.getAttribute('data-sens'));
-        document.querySelectorAll('.btn-clean-preset').forEach((b) => b.classList.remove('active'));
-        btn.classList.add('active');
-        applySensUpdate(s);
-      };
-      btn.addEventListener('touchstart', choosePreset, { passive: false });
-      btn.addEventListener('click', choosePreset);
-    });
-
-    // 지금 위치를 정중앙으로 (Center Reset)
-    function doCenterReset() {
-      resetCenterOrientation();
-      socket.emit('request_center_reset', { slot: mySlot, yaw: 0, pitch: 0 });
-      triggerHaptic('reload');
-      flashColor('reload');
-    }
-    btnPhoneCenterReset.addEventListener('touchstart', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      doCenterReset();
-    }, { passive: false });
-    btnPhoneCenterReset.addEventListener('click', (e) => {
-      e.stopPropagation();
-      doCenterReset();
-    });
-
-    // 좌우 반전 토글
-    function toggleInvertX() {
-      invertX = !invertX;
-      btnPhoneInvertX.textContent = invertX ? '↔️ 좌우 반전: ON' : '↔️ 좌우 반전: OFF';
-      btnPhoneInvertX.style.borderColor = invertX ? '#38bdf8' : '#475569';
-      btnPhoneInvertX.style.color = invertX ? '#38bdf8' : '#f1f5f9';
-      triggerHaptic('shoot');
-    }
-    btnPhoneInvertX.addEventListener('touchstart', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      toggleInvertX();
-    }, { passive: false });
-    btnPhoneInvertX.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleInvertX();
-    });
-
-    // 빠른 9점 크기 측정 요청 (선택)
-    if (btnStart9PointQuick) {
-      const start9Pt = (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        socket.emit('request_recalib', { slot: mySlot });
-        miniStatus.textContent = '📐 모니터 9개 과녁을 차례대로 겨냥해 보세요';
-        triggerHaptic('reload');
-      };
-      btnStart9PointQuick.addEventListener('touchstart', start9Pt, { passive: false });
-      btnStart9PointQuick.addEventListener('click', start9Pt);
-    }
-
-    // 핸드폰 상단 [⚙️ 감도/영점] 버튼 (iOS Safari 터치 100% 보장)
-    function openSettingsPanel() {
-      phoneTuningPanel.style.display = 'flex';
-      miniStatus.textContent = '⚙️ 에임/영점 설정 중';
-      socket.emit('tuning_mode_start', { slot: mySlot, sens: currentPhoneSens });
-      triggerHaptic('reload');
-    }
-
-    btnPhoneOpenSettings.addEventListener('touchstart', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      openSettingsPanel();
-    }, { passive: false });
-    btnPhoneOpenSettings.addEventListener('click', (e) => {
-      e.stopPropagation();
-      openSettingsPanel();
-    });
-
-    // 최종 승인 및 게임 시작
-    function confirmStartGame() {
-      socket.emit('confirm_start_game', { slot: mySlot });
-      phoneTuningPanel.style.display = 'none';
-      miniStatus.textContent = '🧟 전투 시작! 화면 터치 = 사격';
-      triggerHaptic('shoot');
-    }
-    btnPhoneConfirm.addEventListener('touchstart', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      confirmStartGame();
-    }, { passive: false });
-    btnPhoneConfirm.addEventListener('click', (e) => {
-      e.stopPropagation();
-      confirmStartGame();
-    });
-
-    // 서버 소켓 수신
-    socket.on('tuning_mode_start', (data) => {
-      phoneTuningPanel.style.display = 'flex';
-      miniStatus.textContent = '🎯 에임 체험 모드 (아래에서 [시작] 터치)';
-      if (data && data.sens) {
-        currentPhoneSens = data.sens;
-        phoneSensVal.textContent = `${currentPhoneSens.toFixed(2)}x`;
-        if (sensSlider) sensSlider.value = currentPhoneSens;
-      }
-      triggerHaptic('reload');
-    });
-
-    socket.on('game_started', () => {
-      phoneTuningPanel.style.display = 'none';
-      centerAlignOverlay.style.display = 'none';
-      miniStatus.textContent = '🧟 전투 진행 중 • 화면 터치 = 사격';
-      triggerHaptic('shoot');
-    });
-
-    socket.on('ammo_update', (data) => {
-      if (data && typeof data.ammo === 'number') {
-        localAmmo = data.ammo;
-        maxAmmo = data.maxAmmo || 12;
-      }
-    });
-
-    // 화면 터치 사격 및 화면 아래로 당기기(Pull-down) 슬라이드 장전
-    let touchStartY = 0;
-    let touchStartX = 0;
-
-    window.addEventListener('touchstart', (e) => {
-      if (startOverlay.style.display !== 'none') return;
-      if (centerAlignOverlay && centerAlignOverlay.style.display !== 'none') return;
-      if (e.target.closest('#phoneTuningPanel')) return;
-      if (e.target.closest('#btnPhoneOpenSettings')) return;
-
-      if (e.cancelable) e.preventDefault();
-
-      // 탄환 0발 시 터치하면 자동 재장전!
-      if (localAmmo <= 0) {
-        doReload();
+    // ---------------------------------------------------------------
+    // 사격 / 장전
+    // ---------------------------------------------------------------
+    function shoot() {
+      if (!state.slot) return;
+      if (state.phase === 'playing' && state.ammo <= 0) {
+        doReload('empty');
         return;
       }
+      lastShotAt = performance.now();
+      socket.emit('shoot', { yaw, pitch, epoch: state.epoch, t: Date.now() });
+      vibrate(30);
+      flash('shoot');
+    }
 
-      const t = e.touches[0];
-      touchStartX = t.clientX;
-      touchStartY = t.clientY;
+    function doReload(method) {
+      if (!state.slot) return;
+      const now = performance.now();
+      if (now - lastReloadAt < RELOAD_COOLDOWN_MS) return;
+      if (state.phase === 'playing' && state.ammo >= state.maxAmmo) return;
+      lastReloadAt = now;
+      socket.emit('reload', { method });
+      vibrate([30, 40, 60]);
+      flash('reload');
+      toast('장전');
+    }
 
-      // 즉시 사격 발사 & 플레이어 고유 색상 번쩍!
-      socket.emit('shoot', {
-        slot: mySlot,
-        timestamp: Date.now(),
-        yaw: currentYaw,
-        pitch: currentPitch,
-        roll: currentRoll
-      });
-
-      triggerHaptic('shoot');
-      flashColor('shoot');
-    }, { passive: false });
-
-    window.addEventListener('touchmove', (e) => {
-      if (startOverlay.style.display !== 'none') return;
-      if (centerAlignOverlay && centerAlignOverlay.style.display !== 'none') return;
-      if (e.target.closest('#phoneTuningPanel')) return;
-      if (e.target.closest('#btnPhoneOpenSettings')) return;
-      if (e.cancelable) e.preventDefault();
-
-      const t = e.touches[0];
-      const dy = t.clientY - touchStartY;
-
-      // 화면을 아래로 45px 이상 쓱 당기면(Pull down) 즉시 슬라이드 장전!
-      if (dy > 45) {
-        doReload();
-        touchStartY = t.clientY;
+    const swipeStart = new Map();
+    const trigger = $('trigger');
+    trigger.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      swipeStart.set(e.pointerId, { y: e.clientY, reloaded: false });
+      shoot();
+    });
+    function onSwipeMove(e) {
+      const s = swipeStart.get(e.pointerId);
+      if (!s || s.reloaded) return;
+      if (e.clientY - s.y > SWIPE_RELOAD_PX) {
+        s.reloaded = true;
+        doReload('swipe');
       }
-    }, { passive: false });
+    }
+    function onSwipeEnd(e) { swipeStart.delete(e.pointerId); }
+    window.addEventListener('pointermove', onSwipeMove);
+    window.addEventListener('pointerup', onSwipeEnd);
+    window.addEventListener('pointercancel', onSwipeEnd);
+
+    $('reloadStrip').addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      doReload('button');
+    });
+
+    // ---------------------------------------------------------------
+    // 가운데 맞추기
+    // ---------------------------------------------------------------
+    $('scrCenter').addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      if (performance.now() - screenShownAt < 350) return; // 화면이 바뀐 직후 같은 터치는 무시
+      lockCenter();
+    });
+
+    function lockCenter() {
+      resetBase();
+      state.calibrated = true;
+      socket.emit('center_reset', { epoch: state.epoch });
+      vibrate([20, 30, 20]);
+      flash('reload');
+      showScreen('play');
+      toast('가운데를 맞췄어요');
+    }
+
+    // ---------------------------------------------------------------
+    // 설정 시트
+    // ---------------------------------------------------------------
+    function openSheet() { state.sheetOpen = true; document.body.classList.add('sheet-open'); }
+    function closeSheet() { state.sheetOpen = false; document.body.classList.remove('sheet-open'); }
+    $('btnSettings').addEventListener('click', openSheet);
+    $('btnCloseSheet').addEventListener('click', closeSheet);
+    $('sheetBackdrop').addEventListener('click', closeSheet);
+
+    function sendSettings() {
+      if (!state.slot) return;
+      socket.emit('settings', {
+        sens: state.sens,
+        weapon: state.weapon,
+        epoch: state.epoch,
+        calibrated: state.calibrated,
+        centering: state.screen === 'center'
+      });
+    }
+
+    function setSens(v, send = true) {
+      state.sens = Math.max(0.5, Math.min(2, Math.round(v * 100) / 100));
+      $('sensVal').textContent = `${state.sens.toFixed(2)}x`;
+      $('sensSlider').value = state.sens;
+      document.querySelectorAll('#sensPresets button').forEach((b) => b.classList.toggle('on', Number(b.dataset.sens) === state.sens));
+      try { localStorage.setItem('smartgun-sens', String(state.sens)); } catch (e) { /* 저장 안 됨 */ }
+      if (send) {
+        clearTimeout(setSens.timer);
+        setSens.timer = setTimeout(sendSettings, 80);
+      }
+    }
+    $('sensSlider').addEventListener('input', (e) => setSens(parseFloat(e.target.value)));
+    document.querySelectorAll('#sensPresets button').forEach((b) => b.addEventListener('click', () => setSens(Number(b.dataset.sens))));
+
+    document.querySelectorAll('#weaponSeg button').forEach((b) => b.addEventListener('click', () => {
+      state.weapon = b.dataset.weapon;
+      renderAmmo();
+      socket.emit('weapon_change', { weapon: state.weapon });
+      vibrate(20);
+    }));
+
+    $('btnInvert').addEventListener('click', () => {
+      state.invertX = !state.invertX;
+      $('invertSwitch').classList.toggle('on', state.invertX);
+    });
+
+    $('btnRecenter').addEventListener('click', () => {
+      closeSheet();
+      showScreen('center');
+    });
+
+    $('btnStart').addEventListener('click', () => {
+      socket.emit('start_game', {});
+      vibrate(40);
+    });
+
+    // ---------------------------------------------------------------
+    // 시작 (센서 권한)
+    // ---------------------------------------------------------------
+    let wakeLock = null;
+    async function keepAwake() {
+      try {
+        if ('wakeLock' in navigator && document.visibilityState === 'visible') {
+          wakeLock = await navigator.wakeLock.request('screen');
+        }
+      } catch (e) { /* 지원 안 함 */ }
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && state.activated) keepAwake();
+    });
+
+    function register() {
+      socket.emit('register_role', { role: 'controller', token: getToken() });
+    }
+
+    $('btnActivate').addEventListener('click', async () => {
+      const err = $('introErr');
+      err.classList.remove('on');
+      try {
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+          const res = await DeviceOrientationEvent.requestPermission();
+          if (res !== 'granted') {
+            err.textContent = '센서 권한이 거절됐어요. Safari를 완전히 닫았다가 다시 열고, "허용"을 눌러 주세요.';
+            err.classList.add('on');
+            return;
+          }
+        }
+      } catch (e) {
+        err.textContent = '센서 권한을 요청하지 못했어요. 주소가 https인지 확인해 주세요.';
+        err.classList.add('on');
+        return;
+      }
+      if (!state.activated) window.addEventListener('deviceorientation', handleOrientation, true);
+      state.activated = true;
+      keepAwake();
+      register();
+      setTimeout(() => {
+        if (!state.gotOrientation) {
+          bindAll('sensorWarn', (el) => {
+            el.textContent = '방향 센서 값이 안 들어와요. 폰 브라우저에서 동작/방향 접근을 허용해 주세요.';
+            el.classList.add('on');
+          });
+        }
+      }, 2000);
+    });
+
+    $('btnRetry').addEventListener('click', register);
+
+    // ---------------------------------------------------------------
+    // 서버 이벤트
+    // ---------------------------------------------------------------
+    socket.on('connect', () => {
+      state.online = true;
+      if (state.activated) register(); // 끊겼다 다시 붙으면 같은 자리로 다시 등록
+      renderStatus();
+    });
+    socket.on('disconnect', () => {
+      state.online = false;
+      renderStatus();
+    });
+
+    socket.on('player_assigned', (p) => {
+      const firstTime = state.slot === null;
+      state.slot = p.slot;
+      state.name = p.name;
+      document.documentElement.style.setProperty('--pc', p.color);
+      document.querySelector('meta[name="theme-color"]').setAttribute('content', '#07090a');
+      renderStatus();
+      if (state.calibrated && (p.rejoined || !firstTime)) {
+        if (state.screen !== 'center') showScreen('play');
+        sendSettings();
+      } else {
+        showScreen('center');
+        sendSettings();
+      }
+    });
+
+    socket.on('room_full', () => {
+      state.slot = null;
+      showScreen('full');
+    });
+
+    socket.on('replaced', () => {
+      state.slot = null;
+      state.activated = false;
+      showScreen('intro');
+      const err = $('introErr');
+      err.textContent = '다른 탭에서 이 자리로 접속했어요. 이 탭은 쉬는 중이에요.';
+      err.classList.add('on');
+    });
+
+    socket.on('display_status', (d) => {
+      state.displayOnline = !!(d && d.connected);
+      renderStatus();
+    });
+
+    // PC 화면이 새로 켜지면 내 설정과 영점 상태를 다시 알려 줍니다.
+    socket.on('display_joined', () => {
+      state.displayOnline = true;
+      renderStatus();
+      sendSettings();
+    });
+
+    socket.on('game_state', (d) => {
+      if (!d || !d.phase) return;
+      const changed = d.phase !== state.phase;
+      state.phase = d.phase;
+      renderStatus();
+      if (changed && d.phase === 'playing') { toast('게임 시작!'); vibrate([60, 40, 60]); }
+    });
+
+    socket.on('ammo_update', (d) => {
+      if (!d) return;
+      if (typeof d.ammo === 'number') state.ammo = d.ammo;
+      if (typeof d.maxAmmo === 'number') state.maxAmmo = d.maxAmmo;
+      if (d.weapon) state.weapon = d.weapon;
+      if (typeof d.score === 'number') state.score = d.score;
+      renderAmmo();
+    });
+
+    socket.on('hit', (d) => {
+      if (d && d.kind === 'kill') vibrate([15, 30, 15]);
+    });
+
+    socket.on('need_center', () => {
+      if (state.screen === 'play') showScreen('center');
+    });
+
+    // 처음 값
+    try {
+      const saved = parseFloat(localStorage.getItem('smartgun-sens'));
+      if (saved >= 0.5 && saved <= 2) setSens(saved, false);
+    } catch (e) { /* 저장 안 됨 */ }
+    renderStatus();
+    renderAmmo();
   </script>
 </body>
 </html>
