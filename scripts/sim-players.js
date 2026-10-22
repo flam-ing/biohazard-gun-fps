@@ -18,6 +18,8 @@ const NO_BROWSER = args.includes('--no-browser');
 const screensIdx = args.indexOf('--screens');
 const SCREENS_DIR = screensIdx >= 0 ? path.resolve(args[screensIdx + 1] || 'screenshots') : null;
 const RESERVE_MS = 700;
+// 브라우저 검사에서는 폰 페이지를 새로고침하고 "시작하기"를 다시 누를 시간이 필요해서 더 길게 잡습니다.
+const BROWSER_RESERVE_MS = 3000;
 const CONTROLLER_EVENTS = ['aim', 'shoot', 'reload', 'center_reset', 'calib_begin', 'settings', 'weapon_change', 'start_game'];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -34,11 +36,11 @@ function check(cond, label, extra) {
 }
 const near = (a, b, eps = 0.05) => Math.abs(a - b) <= eps;
 
-function startServer() {
+function startServer(reserveMs = RESERVE_MS) {
   return new Promise((resolve, reject) => {
     const port = 4100 + Math.floor(Math.random() * 800);
     const child = fork(path.join(__dirname, '..', 'server.js'), [], {
-      env: { ...process.env, PORT: String(port), RESERVE_MS: String(RESERVE_MS), RENDER: '' },
+      env: { ...process.env, PORT: String(port), RESERVE_MS: String(reserveMs), RENDER: '' },
       stdio: ['ignore', 'pipe', 'pipe', 'ipc']
     });
     let done = false;
@@ -161,10 +163,20 @@ async function serverTests() {
     C[2].disconnect();
     const away = await waitFor(D, 'player_list_updated', 2000, (d) => d.players.some((p) => p.slot === 3 && !p.connected));
     check(!!away, '3P가 끊기면 화면에 "다시 연결 중"으로 표시됨');
+    const C3session = received(D, 'player_list_updated').map((l) => l.data.players.find((p) => p.slot === 3)).find(Boolean)?.session;
     const C3b = await controller(url, 'C3b', 'token-player-3');
     sockets.push(C3b);
     const back = await waitFor(C3b, 'player_assigned');
     check(back.slot === 3 && back.rejoined === true, '3P가 새로고침해도 같은 3P 자리로 돌아옴', back);
+    // 새로고침한 폰은 영점 번호를 0부터 다시 세므로, 화면이 "새 연결"임을 알 수 있어야 합니다.
+    const relist = await waitFor(D, 'player_list_updated', 2000, (d) => d.players.some((p) => p.slot === 3 && p.connected)).catch(() => null);
+    const newSession = relist && relist.players.find((p) => p.slot === 3).session;
+    D.log = [];
+    C3b.emit('aim', { yaw: 1, pitch: 0, epoch: 1 });
+    await sleep(200);
+    const aimSession = received(D, 'aim')[0]?.data.session;
+    check(typeof C3session === 'number' && typeof newSession === 'number' && newSession !== C3session && aimSession === newSession,
+      '다시 들어온 3P는 새 연결 번호를 받고, 화면이 받는 조준에도 그 번호가 붙음', { before: C3session, after: newSession, aimSession });
 
     // 자리 예약 중에는 새 폰이 못 들어오고, 시간이 지나면 들어옴
     C[3].disconnect();
@@ -200,6 +212,25 @@ async function serverTests() {
     const list2 = received(D2, 'player_list_updated')[0].data;
     const joined = await waitFor(C3b, 'display_joined').catch(() => null);
     check(list2.count === 4 && !!joined, '늦게 켠 PC 화면도 지금 플레이어 목록을 받고, 폰은 설정을 다시 보내라는 신호를 받음', { count: list2.count, joined: !!joined, log: C3b.log.map((l) => l.event) });
+
+    // PC 화면을 하나 더 켜면 새 화면이 이어받고, 예전 화면은 쉬어야 합니다. (둘이 따로 게임을 돌리면 안 됨)
+    C3b.log = [];
+    const D3 = await display(url, 'display3');
+    sockets.push(D3);
+    const retired = await waitFor(D2, 'display_replaced', 1500).catch(() => null);
+    D2.log = [];
+    D3.log = [];
+    C3b.log = [];
+    C3b.emit('shoot', {});
+    D2.emit('to_controllers', { event: 'game_state', data: { phase: 'lobby-from-old' } });
+    D2.emit('to_slot', { slot: 3, event: 'ammo_update', data: { ammo: 1 } });
+    await sleep(300);
+    check(!!retired, '두 번째 PC 화면이 켜지면 첫 화면에 "다른 화면이 이어받았다"는 신호가 감');
+    check(received(D3, 'shoot').length === 1 && received(D2, 'shoot').length === 0, '폰 입력은 새 화면에만 감', { new: received(D3, 'shoot').length, old: received(D2, 'shoot').length });
+    check(received(C3b, 'game_state').length === 0 && received(C3b, 'ammo_update').length === 0, '쉬는 화면이 보낸 게임 상태·탄 정보는 폰에 안 감', C3b.log.map((l) => l.event));
+    D2.disconnect();
+    await sleep(250);
+    check(!received(C3b, 'display_status').some((l) => l.data.connected === false), '쉬는 화면을 닫아도 폰은 "PC 꺼짐"으로 바뀌지 않음');
   } finally {
     sockets.forEach((s) => s.close());
     child.kill();
@@ -282,7 +313,7 @@ async function browserTests() {
     return;
   }
   console.log('\n[화면] 4명 조준·영점·탄약이 각자 따로 동작하는지');
-  const { child, url } = await startServer();
+  const { child, url } = await startServer(BROWSER_RESERVE_MS);
   const browser = await puppeteer.launch({
     executablePath: chromePath,
     headless: true,
@@ -297,6 +328,29 @@ async function browserTests() {
     console.log(`  shot ${file}`);
   };
   try {
+    // ----- Three.js CDN이 막혔을 때 -----
+    const blocked = async (patterns) => {
+      const pg = await browser.newPage();
+      await pg.setViewport({ width: 1280, height: 720 });
+      await pg.setRequestInterception(true);
+      pg.on('request', (req) => (patterns.some((re) => re.test(req.url())) ? req.abort() : req.continue()));
+      await pg.goto(url, { waitUntil: 'networkidle0' }).catch(() => {});
+      await sleep(300);
+      return pg;
+    };
+    let cdnPage = await blocked([/cdnjs\.cloudflare\.com\/.*three/]);
+    const fallbackOk = await cdnPage.evaluate(() => !!(window.THREE && window.__game)).catch(() => false);
+    check(fallbackOk, '첫 번째 CDN(cdnjs)이 막혀도 두 번째 CDN에서 Three.js를 받아 게임 화면이 뜸');
+    await cdnPage.close();
+    cdnPage = await blocked([/cdnjs\.cloudflare\.com\/.*three/, /jsdelivr\.net\/.*three/, /unpkg\.com\/.*three/]);
+    const fatal = await cdnPage.evaluate(() => {
+      const el = document.getElementById('fatalOverlay');
+      return el && getComputedStyle(el).display !== 'none' ? el.innerText : '';
+    }).catch(() => '');
+    check(/불러오지 못했어요/.test(fatal), 'Three.js를 아예 못 받으면 빈 화면 대신 한국어 안내가 보임', fatal.slice(0, 40));
+    await shot(cdnPage, 'display-0-cdn-error');
+    await cdnPage.close();
+
     const page = await browser.newPage();
     page.on('pageerror', (err) => { failures++; console.log(`  FAIL 화면 JS 오류: ${err.message}`); });
     await page.setViewport({ width: 1920, height: 1080 });
@@ -308,6 +362,22 @@ async function browserTests() {
     await sleep(300);
     await shot(page, 'display-1-lobby-empty-1280');
     await page.setViewport({ width: 1920, height: 1080 });
+
+    // GPU 메모리: 좀비·피 파티클을 지우면 지오메트리도 같이 지워져야 함
+    const mem = await page.evaluate(async () => {
+      const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+      spawnBloodBurst(new THREE.Vector3(0, 1.5, -6), 4);
+      await wait(900);
+      const base = renderer.info.memory.geometries;
+      for (let i = 0; i < 8; i++) createZombie(['walker', 'runner', 'crawler', 'spitter', 'brute', 'bloater'][i % 6]);
+      for (let i = 0; i < 6; i++) spawnBloodBurst(new THREE.Vector3(0, 1.5, -6), 10);
+      await wait(300);
+      const mid = renderer.info.memory.geometries;
+      clearEnemies();
+      await wait(1000);
+      return { base, mid, after: renderer.info.memory.geometries };
+    });
+    check(mem.mid > mem.base + 20 && mem.after <= mem.base, `좀비·피를 지우면 GPU 지오메트리도 지워짐 (처음 ${mem.base} → 좀비 8마리 ${mem.mid} → 지운 뒤 ${mem.after})`, mem);
 
     const phones = [];
     for (let i = 1; i <= 4; i++) {
@@ -409,6 +479,29 @@ async function browserTests() {
     }
     const zc = await G(() => window.__game.zombieCount);
     check(zc > 0, `전투가 시작되면 좀비가 나옴 (${zc}마리)`);
+    // 심전도 선: 지나간 자리에 흐린 점이 남지 않아야 함 (진한 선 옆이 아닌 곳에 흐린 픽셀이 있으면 찌꺼기)
+    const ecg = await G(() => {
+      const c = document.getElementById('ecgCanvas');
+      const W = c.width;
+      const H = c.height;
+      const d = c.getContext('2d').getImageData(0, 0, W, H).data;
+      const A = (x, y) => (x < 0 || y < 0 || x >= W || y >= H ? 0 : d[(y * W + x) * 4 + 3]);
+      let stray = 0;
+      let drawn = 0;
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const a = A(x, y);
+          if (!a) continue;
+          drawn++;
+          if (a >= 40) continue;
+          let solid = false;
+          for (let dy = -3; dy <= 3 && !solid; dy++) for (let dx = -3; dx <= 3 && !solid; dx++) if (A(x + dx, y + dy) >= 80) solid = true;
+          if (!solid) stray++;
+        }
+      }
+      return { stray, drawn };
+    });
+    check(ecg.drawn > 100 && ecg.stray === 0, `심전도 선이 지나간 자리에 흐린 찌꺼기가 안 남음 (찌꺼기 ${ecg.stray}픽셀)`, ecg);
     await shot(page, 'display-3-gameplay-4p');
     await page.setViewport({ width: 1280, height: 720 });
     await streamAims(phones, 300, (i, t) => [Math.sin(t + i) * 14, -2]);
@@ -433,7 +526,7 @@ async function browserTests() {
 
     // ----- 폰 화면 (390x844) -----
     phones[3].s.close();
-    await sleep(RESERVE_MS + 300);
+    await sleep(BROWSER_RESERVE_MS + 300);
     const phone = await browser.newPage();
     phone.on('pageerror', (err) => { failures++; console.log(`  FAIL 컨트롤러 JS 오류: ${err.message}`); });
     await phone.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
@@ -475,21 +568,55 @@ async function browserTests() {
     await sleep(300);
     const p4 = await G(() => window.__game.PLAYERS[4]);
     check(p4.present && p4.aimX > 0.3, `실제 컨트롤러 페이지: 폰을 오른쪽으로 10° 돌리면 크로스헤어도 오른쪽 (aimX=${p4.aimX.toFixed(2)})`);
+
+    // 조준 보내기: 센서가 60Hz 근처에서 들쭉날쭉하게 들어와도 대부분 화면에 닿아야 함
+    await G(() => { window.__aim4 = 0; socket.on('aim', (d) => { if (d.slot === 4) window.__aim4++; }); });
+    const sent = await phone.evaluate(async () => {
+      const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+      let n = 0;
+      const t0 = performance.now();
+      while (performance.now() - t0 < 1000) {
+        window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', { alpha: 25 + Math.sin(n / 5) * 4, beta: 5, gamma: 0 }));
+        n++;
+        await wait(n % 2 ? 13 : 19); // 평균 16ms, 매번 조금씩 흔들림
+      }
+      return n;
+    });
+    await sleep(300);
+    const gotAims = await G(() => window.__aim4);
+    check(gotAims >= sent * 0.8, `들쭉날쭉한 60Hz 조준 값도 거의 다 보냄 (센서 ${sent}번 → 화면 ${gotAims}번)`);
+    // 마지막 값이 버려지지 않아야 함: 아주 짧은 간격으로 두 번 움직이면 두 번째 값이 화면에 남아야 함
+    await phone.evaluate(() => {
+      window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', { alpha: 30, beta: 5, gamma: 0 }));
+      window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', { alpha: 18, beta: 5, gamma: 0 }));
+    });
+    await sleep(250);
+    const lastYaw = await G(() => window.__game.PLAYERS[4].rawYaw);
+    check(near(lastYaw, 12, 0.3), `잠깐 사이에 들어온 마지막 조준 값도 화면에 닿음 (yaw ${lastYaw})`);
     for (let i = 0; i < 10; i++) { await orient(30, 5, 0); await sleep(16); }
     await sleep(300);
     await shot(phone, 'controller-3-play-lobby');
     await overflow('연습(로비)');
 
-    // 장전 오작동 검사: 쏜 직후 흔들림으로는 장전이 안 됨
+    // 장전 오작동 검사: 쏜 직후에는 총구가 장전 각도(-38°)보다 크게 내려갔다 올라와도 장전이 안 됨
     await G(() => window.__game.startGame());
     await sleep(500);
     await phone.tap('#trigger');
+    await sleep(60);
     await phone.tap('#trigger');
-    for (let i = 0; i < 5; i++) { await orient(30, -20, 0); await sleep(16); } // 반동으로 살짝 내려감
-    for (let i = 0; i < 5; i++) { await orient(30, 5, 0); await sleep(16); }
+    // 쏘자마자 반동으로 총구가 -55°까지 꺾였다가 0.2초 안에 돌아옴 (센서 값은 페이지 안에서 정확한 간격으로 넣음)
+    const tiltMinPitch = await phone.evaluate(async () => {
+      const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+      const o = (b) => window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', { alpha: 30, beta: b, gamma: 0 }));
+      let min = 0;
+      for (let i = 0; i < 10; i++) { o(-50); await wait(16); min = Math.min(min, pitch); }
+      for (let i = 0; i < 4; i++) { o(5); await wait(16); }
+      return min;
+    });
     await sleep(300);
     st = await G(() => window.__game.PLAYERS[4].ammo);
-    check(st === 10, `두 번 쏘고 반동으로 살짝 흔들려도 장전 안 됨 (탄 ${st}/12)`);
+    check(tiltMinPitch < -38 && st === 10, `두 번 쏜 직후 반동으로 총구가 ${tiltMinPitch.toFixed(0)}°까지 꺾여도 장전 안 됨 (탄 ${st}/12)`);
+    await sleep(400);
     for (let i = 0; i < 12; i++) { await orient(30, -50, 0); await sleep(16); } // 총구를 확 내렸다가
     for (let i = 0; i < 6; i++) { await orient(30, 5, 0); await sleep(16); } // 다시 올림
     await sleep(300);
@@ -510,6 +637,68 @@ async function browserTests() {
     await sleep(300);
     await overflow('작은 폰(360x640) 전투');
     await shot(phone, 'controller-6-small-phone');
+    await phone.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+    await sleep(300);
+
+    // ----- 방아쇠: 탭은 쏘고, 아래로 쓸면 쏘지 않고 장전만 -----
+    await G(() => {
+      window.__shots4 = 0;
+      const wrap = (fn) => function (p) { if (p && p.slot === 4) window.__shots4++; return fn.apply(this, arguments); };
+      performShoot = wrap(performShoot);
+      performTestShoot = wrap(performTestShoot);
+      window.__game.endGame();
+      window.__game.startGame();
+    });
+    await sleep(400);
+    const box = await phone.$eval('#trigger', (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height * 0.3 }; });
+    await phone.tap('#trigger');
+    await sleep(200);
+    st = await G(() => ({ shots: window.__shots4, ammo: window.__game.PLAYERS[4].ammo }));
+    check(st.shots === 1 && st.ammo === 11, '방아쇠를 톡 치면 한 발 나감', st);
+    await phone.touchscreen.touchStart(box.x, box.y);
+    await sleep(160);
+    const heldShots = await G(() => window.__shots4);
+    await phone.touchscreen.touchEnd();
+    await sleep(150);
+    st = await G(() => ({ shots: window.__shots4, ammo: window.__game.PLAYERS[4].ammo }));
+    check(heldShots === 2 && st.shots === 2, '방아쇠를 누르고 있으면 손을 떼기 전에 바로 한 발 나감 (뗄 때 또 안 나감)', { heldShots, ...st });
+    await phone.touchscreen.touchStart(box.x, box.y);
+    await phone.touchscreen.touchMove(box.x, box.y + 30);
+    await phone.touchscreen.touchMove(box.x, box.y + 90);
+    await phone.touchscreen.touchEnd();
+    await sleep(300);
+    st = await G(() => ({ shots: window.__shots4, ammo: window.__game.PLAYERS[4].ammo }));
+    check(st.shots === 2 && st.ammo === 12, `아래로 쓸어 장전하면 총알이 안 나가고 장전만 됨 (사격 ${st.shots - 2}번, 탄 ${st.ammo}/12)`, st);
+
+    // ----- 폰 새로고침: 같은 자리, 조준·무기·탄·좌우 반대 설정이 그대로 -----
+    await phone.evaluate(() => document.querySelector('#weaponSeg [data-weapon="shotgun"]').click());
+    await sleep(200);
+    await phone.tap('#trigger');
+    await sleep(200);
+    await phone.evaluate(() => document.getElementById('btnInvert').click());
+    // 가운데를 한 번 더 맞춰서 화면의 영점 번호를 2로 올려 둡니다. (새로고침한 폰은 1부터 다시 셈)
+    await phone.evaluate(() => document.getElementById('btnRecenter').click());
+    await sleep(450);
+    await phone.tap('#scrCenter');
+    await sleep(300);
+    const before = await G(() => ({ w: window.__game.PLAYERS[4].weapon, a: window.__game.PLAYERS[4].ammo, e: window.__game.PLAYERS[4].epoch }));
+    check(before.w === 'shotgun' && before.a === 5 && before.e >= 2, '새로고침 전: 4P 샷건 5/6발, 영점 번호 2 이상', before);
+    await phone.reload({ waitUntil: 'networkidle0' });
+    await phone.click('#btnActivate');
+    await phone.waitForSelector('#scrCenter.on', { timeout: 3000 });
+    for (let i = 0; i < 5; i++) { await orient(30, 5, 0); await sleep(20); }
+    await sleep(400);
+    await phone.tap('#scrCenter');
+    await phone.waitForSelector('#scrPlay.on', { timeout: 3000 });
+    for (let i = 0; i < 30; i++) { await orient(20, 5, 0); await sleep(16); }
+    await sleep(300);
+    const after = await G(() => { const p = window.__game.PLAYERS[4]; return { slot: p.slot, present: p.present, aimX: p.aimX, w: p.weapon, a: p.ammo }; });
+    const phoneView = await phone.evaluate(() => ({ name: state.name, ammo: document.getElementById('ammoVal').textContent, weapon: document.getElementById('weaponName').textContent, invert: document.getElementById('invertSwitch').classList.contains('on') }));
+    check(after.present && phoneView.name === '4P', '폰을 새로고침해도 같은 4P 자리로 돌아옴', phoneView.name);
+    check(Math.abs(after.aimX) > 0.3, `폰 새로고침 뒤에도 조준이 화면에 반영됨 (가운데에 멈추지 않음, aimX=${after.aimX.toFixed(2)})`);
+    check(after.w === 'shotgun' && after.a === 5 && phoneView.weapon === '샷건' && phoneView.ammo === '5', '폰 새로고침 뒤에도 무기·탄이 그대로 (화면 샷건 5발, 폰도 샷건 5발)', { display: { w: after.w, a: after.a }, phone: phoneView });
+    check(phoneView.invert && after.aimX < -0.3, '폰 새로고침 뒤에도 "좌우 반대로"가 켜져 있어서 오른쪽으로 돌리면 왼쪽으로 감', { invert: phoneView.invert, aimX: after.aimX });
+    for (let i = 0; i < 10; i++) { await orient(30, 5, 0); await sleep(16); }
 
     // 5번째 폰 화면
     const p5 = await browser.newPage();
@@ -522,6 +711,18 @@ async function browserTests() {
     const fullShown = await p5.waitForSelector('#scrFull.on', { timeout: 3000 }).then(() => true).catch(() => false);
     check(fullShown, '5번째 폰 화면에 "4명이 꽉 찼어요"가 보임');
     await shot(p5, 'controller-7-room-full');
+
+    // PC 화면을 하나 더 열면 새 화면이 이어받고, 예전 화면은 쉰다는 안내를 보여 줌
+    const page2 = await browser.newPage();
+    page2.on('pageerror', (err) => { failures++; console.log(`  FAIL 두 번째 화면 JS 오류: ${err.message}`); });
+    await page2.setViewport({ width: 1280, height: 720 });
+    await page2.goto(url, { waitUntil: 'networkidle0' });
+    await page2.waitForFunction(() => window.__game && window.__game.PLAYERS[4].present, { timeout: 4000 }).catch(() => {});
+    const oldRetired = await page.waitForFunction(() => document.body.classList.contains('retired'), { timeout: 3000 }).then(() => true).catch(() => false);
+    check(oldRetired, '두 번째 PC 화면을 열면 첫 화면에 "다른 화면에서 게임을 열었어요"가 보임');
+    check((await page2.evaluate(() => window.__game.PLAYERS[4].present)), '두 번째 화면이 지금 플레이어들을 그대로 이어받음');
+    await page.bringToFront();
+    await shot(page, 'display-5-replaced');
   } finally {
     sockets.forEach((s) => s.close());
     await browser.close();

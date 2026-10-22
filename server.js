@@ -46,8 +46,13 @@ const PLAYER_SLOTS = {
   4: { slot: 4, name: '4P', color: '#6bf178' }
 };
 
-// slot 번호 -> { slot, token, socketId, connected, timer }
+// slot 번호 -> { slot, token, socketId, connected, timer, session }
 const slots = new Map();
+// 폰이 자리를 (다시) 받을 때마다 1씩 올라가는 번호입니다.
+// 화면은 이 번호가 바뀌면 그 폰이 새로 연결됐다고 보고 영점 번호(epoch)를 처음부터 다시 셉니다.
+let sessionCounter = 0;
+// 게임을 돌리는 PC 화면은 하나만 둡니다. 새로 켠 화면이 이어받고, 예전 화면은 쉬게 됩니다.
+let activeDisplayId = null;
 // 마지막으로 화면(PC)이 알려 준 게임 상태. 새로 들어온 폰에게 바로 알려 줍니다.
 let lastGameState = { phase: 'lobby' };
 
@@ -66,16 +71,40 @@ const CONTROLLER_EVENTS = [
 const DISPLAY_EVENTS = ['ammo_update', 'game_state', 'hit', 'need_center'];
 
 function publicPlayer(entry) {
-  return { ...PLAYER_SLOTS[entry.slot], connected: entry.connected };
+  return { ...PLAYER_SLOTS[entry.slot], connected: entry.connected, session: entry.session };
 }
 
 function playerList() {
   return [...slots.values()].sort((a, b) => a.slot - b.slot).map(publicPlayer);
 }
 
-function displayCount() {
-  const room = io.sockets.adapter.rooms.get('displays');
-  return room ? room.size : 0;
+function hasDisplay() {
+  return Boolean(activeDisplayId && io.sockets.sockets.get(activeDisplayId));
+}
+
+function isActiveDisplay(socket) {
+  return socket.data.role === 'display' && socket.id === activeDisplayId;
+}
+
+function registerDisplay(socket) {
+  if (activeDisplayId && activeDisplayId !== socket.id) {
+    const old = io.sockets.sockets.get(activeDisplayId);
+    if (old) {
+      old.leave('displays');
+      old.data.role = 'display_retired';
+      old.emit('display_replaced');
+      console.log(`[display] 다른 화면이 이어받아 쉬게 함: ${old.id}`);
+    }
+  }
+  activeDisplayId = socket.id;
+  socket.data.role = 'display';
+  socket.join('displays');
+  lastGameState = { phase: 'lobby' };
+  socket.emit('player_list_updated', { players: playerList(), count: slots.size, max: MAX_PLAYERS });
+  io.to('controllers').emit('display_status', { connected: true });
+  // 화면이 새로 켜졌으니 폰들에게 설정(감도, 무기, 영점 상태)을 다시 보내 달라고 합니다.
+  io.to('controllers').emit('display_joined');
+  console.log(`[display] 연결: ${socket.id}`);
 }
 
 function broadcastPlayers() {
@@ -141,12 +170,13 @@ function registerController(socket, token) {
   entry.socketId = socket.id;
   entry.connected = true;
   entry.timer = null;
+  entry.session = ++sessionCounter;
   socket.data.slot = entry.slot;
   socket.join('controllers');
   socket.join(`slot:${entry.slot}`);
 
   socket.emit('player_assigned', { ...publicPlayer(entry), rejoined });
-  socket.emit('display_status', { connected: displayCount() > 0 });
+  socket.emit('display_status', { connected: hasDisplay() });
   socket.emit('game_state', lastGameState);
   broadcastPlayers();
   console.log(`[controller] ${entry.slot}P ${rejoined ? '재접속' : '연결'}: ${socket.id}`);
@@ -161,13 +191,7 @@ io.on('connection', (socket) => {
       socket.data.role = 'controller';
       registerController(socket, token);
     } else if (role === 'display') {
-      socket.data.role = 'display';
-      socket.join('displays');
-      socket.emit('player_list_updated', { players: playerList(), count: slots.size, max: MAX_PLAYERS });
-      io.to('controllers').emit('display_status', { connected: true });
-      // 화면이 새로 켜졌으니 폰들에게 설정(감도, 무기, 영점 상태)을 다시 보내 달라고 합니다.
-      io.to('controllers').emit('display_joined');
-      console.log(`[display] 연결: ${socket.id}`);
+      registerDisplay(socket);
     }
   });
 
@@ -182,6 +206,7 @@ io.on('connection', (socket) => {
       payload.slot = slot;
       payload.color = PLAYER_SLOTS[slot].color;
       payload.playerName = PLAYER_SLOTS[slot].name;
+      payload.session = entry.session;
       if (eventName === 'aim') {
         io.to('displays').volatile.emit('aim', payload);
       } else {
@@ -192,7 +217,7 @@ io.on('connection', (socket) => {
 
   // 화면 -> 특정 자리의 폰
   socket.on('to_slot', (msg) => {
-    if (socket.data.role !== 'display' || !msg) return;
+    if (!isActiveDisplay(socket) || !msg) return;
     const slot = Number(msg.slot);
     if (!PLAYER_SLOTS[slot] || !DISPLAY_EVENTS.includes(msg.event)) return;
     io.to(`slot:${slot}`).emit(msg.event, msg.data || {});
@@ -200,7 +225,7 @@ io.on('connection', (socket) => {
 
   // 화면 -> 모든 폰
   socket.on('to_controllers', (msg) => {
-    if (socket.data.role !== 'display' || !msg || !DISPLAY_EVENTS.includes(msg.event)) return;
+    if (!isActiveDisplay(socket) || !msg || !DISPLAY_EVENTS.includes(msg.event)) return;
     if (msg.event === 'game_state' && msg.data && typeof msg.data.phase === 'string') {
       lastGameState = { phase: msg.data.phase };
     }
@@ -208,8 +233,9 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    if (socket.data.role === 'display') {
-      if (displayCount() === 0) {
+    if (socket.data.role === 'display' || socket.data.role === 'display_retired') {
+      if (socket.id === activeDisplayId) {
+        activeDisplayId = null;
         lastGameState = { phase: 'lobby' };
         io.to('controllers').emit('display_status', { connected: false });
       }

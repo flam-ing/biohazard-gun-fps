@@ -9,6 +9,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    // 첫 번째 CDN이 막혀 있으면 다른 CDN에서 한 번 더 받아 옵니다.
+    if (!window.THREE) document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"><\/script>');
+  </script>
   <style>
     :root {
       --bg: #07090a;
@@ -257,6 +261,23 @@
       backdrop-filter: blur(4px);
     }
     body.show-join .join-overlay { display: flex; }
+    /* 3D 엔진을 못 불러왔을 때, 다른 PC 화면이 게임을 이어받았을 때 */
+    .notice-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: var(--edge);
+      background: rgba(4, 5, 6, 0.86);
+      backdrop-filter: blur(4px);
+    }
+    body.fatal #fatalOverlay, body.retired #retiredOverlay { display: flex; }
+    .notice-card { width: min(460px, 100%); padding: var(--s6); display: grid; gap: var(--s4); text-align: center; }
+    .notice-card h2 { font-size: 22px; font-weight: 900; line-height: 1.35; }
+    .notice-card p { font-size: 15px; color: var(--muted); line-height: 1.6; }
+    .notice-card .btn-start { justify-self: center; }
     .join-overlay .join-card { position: static; transform: none; width: 320px; }
     .btn-line {
       width: 100%;
@@ -592,6 +613,21 @@
     </aside>
   </div>
 
+  <div class="notice-overlay" id="fatalOverlay">
+    <div class="notice-card panel">
+      <h2>게임 화면을 불러오지 못했어요</h2>
+      <p>3D 그래픽 파일(Three.js)을 인터넷에서 받지 못했어요.<br />인터넷 연결이나 회사 방화벽을 확인한 뒤 새로고침해 주세요.</p>
+      <button class="btn-start" onclick="location.reload()">새로고침</button>
+    </div>
+  </div>
+  <div class="notice-overlay" id="retiredOverlay">
+    <div class="notice-card panel">
+      <h2>다른 PC 화면에서 게임을 열었어요</h2>
+      <p>게임 화면은 한 곳에서만 돌아가요.<br />그래서 이 화면은 지금 쉬고 있어요.<br />여기서 계속하려면 아래 버튼을 누르세요.</p>
+      <button class="btn-start" id="btnTakeOver">이 화면에서 계속하기</button>
+    </div>
+  </div>
+
   <!-- 표적 -->
   <div class="target" id="tCenter"><div class="ring"></div><div class="ring2"></div><div class="bull"></div></div>
   <div class="target practice" id="tLeft"><div class="ring"></div><div class="ring2"></div><div class="bull"></div></div>
@@ -605,6 +641,11 @@
   <footer class="players" id="players"></footer>
 
   <script>
+    if (!window.THREE) {
+      // 두 CDN 모두 실패: 빈 화면 대신 알림을 보여 주고, PC 화면으로 등록하지 않습니다.
+      document.body.classList.add('fatal');
+      throw new Error('Three.js를 불러오지 못했어요');
+    }
     const socket = io({ transports: ['websocket', 'polling'] });
     const $ = (id) => document.getElementById(id);
 
@@ -906,6 +947,7 @@
         connected: false,    // 지금 연결돼 있음 (false면 다시 연결 중)
         calibrated: false,
         centering: false,
+        session: null,       // 서버가 붙여 주는 연결 번호. 바뀌면 폰이 새로 연결된 것
         epoch: 0,
         sens: 1,
         weapon: 'pistol',
@@ -1060,7 +1102,9 @@
     // =========================================================================
     // 폰으로 보내기
     // =========================================================================
+    let retired = false; // 다른 PC 화면이 게임을 이어받으면 true
     function toSlot(slot, event, data) {
+      if (retired) return;
       socket.emit('to_slot', { slot, event, data });
     }
     function sendAmmo(p) {
@@ -1070,7 +1114,7 @@
     function setPhase(next) {
       phase = next;
       document.body.dataset.phase = next;
-      socket.emit('to_controllers', { event: 'game_state', data: { phase } });
+      if (!retired) socket.emit('to_controllers', { event: 'game_state', data: { phase } });
       renderAll();
     }
 
@@ -1091,24 +1135,37 @@
     const ecgCanvas = $('ecgCanvas');
     const ecgCtx = ecgCanvas.getContext('2d');
     let ecgPhase = 0;
+    function ecgY(t, H) {
+      const cycle = ((t % 56) + 56) % 56;
+      if (cycle > 20 && cycle < 24) return H * 0.18;
+      if (cycle >= 24 && cycle < 28) return H * 0.85;
+      if (cycle >= 28 && cycle < 32) return H * 0.35;
+      return H / 2;
+    }
     function drawEcg() {
       const W = ecgCanvas.width;
       const H = ecgCanvas.height;
-      // 지난 점들을 투명하게 지워 나가서 패널 배경이 비쳐 보이게 합니다.
-      ecgCtx.globalCompositeOperation = 'destination-out';
-      ecgCtx.fillStyle = 'rgba(0, 0, 0, 0.05)';
-      ecgCtx.fillRect(0, 0, W, H);
-      ecgCtx.globalCompositeOperation = 'source-over';
+      // 매 프레임 완전히 지우고 다시 그립니다. (반투명으로 덮어 지우면 흐린 점이 남아요)
+      ecgCtx.clearRect(0, 0, W, H);
+      if (ecgCanvas.offsetParent === null) return; // 로비에서는 안 보이니 그리지 않음
       const speed = teamHp > 60 ? 2.2 : teamHp > 25 ? 3.4 : 4.8;
-      ecgPhase = (ecgPhase + speed) % W;
-      const x = ecgPhase;
-      let y = H / 2;
-      const cycle = x % 56;
-      if (cycle > 20 && cycle < 24) y = H * 0.18;
-      else if (cycle >= 24 && cycle < 28) y = H * 0.85;
-      else if (cycle >= 28 && cycle < 32) y = H * 0.35;
-      ecgCtx.fillStyle = teamHp > 60 ? '#59e08a' : teamHp > 25 ? '#ff9f1c' : '#ff3b3b';
-      ecgCtx.fillRect(x, y, 3, 3);
+      ecgPhase = (ecgPhase + speed) % 5600;
+      // 선이 왼쪽으로 흘러가고, 오른쪽 끝이 지금 값입니다. 왼쪽으로 갈수록 흐려집니다.
+      ecgCtx.strokeStyle = teamHp > 60 ? '#59e08a' : teamHp > 25 ? '#ff9f1c' : '#ff3b3b';
+      ecgCtx.lineWidth = 3;
+      ecgCtx.lineJoin = 'round';
+      ecgCtx.lineCap = 'round';
+      const seg = 12;
+      for (let x0 = 0; x0 < W; x0 += seg) {
+        ecgCtx.globalAlpha = 0.35 + 0.65 * Math.min(1, x0 / (W * 0.7));
+        ecgCtx.beginPath();
+        for (let x = x0; x <= Math.min(W, x0 + seg); x += 1) {
+          const y = ecgY(ecgPhase - (W - x), H);
+          if (x === x0) ecgCtx.moveTo(x, y); else ecgCtx.lineTo(x, y);
+        }
+        ecgCtx.stroke();
+      }
+      ecgCtx.globalAlpha = 1;
     }
 
     // =========================================================================
@@ -1290,6 +1347,21 @@
     const zombies = [];
     const bloodParticles = [];
     const acidProjectiles = [];
+
+    // 좀비와 독액은 만들 때마다 지오메트리·재질을 새로 만들기 때문에, 없앨 때 GPU 메모리도 같이 비웁니다.
+    function disposeObject(root) {
+      root.traverse((o) => {
+        if (o.geometry) o.geometry.dispose();
+        if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose());
+      });
+    }
+    function removeAndDispose(obj) {
+      scene.remove(obj);
+      disposeObject(obj);
+    }
+    // 피 파티클은 아주 많이 생기니 하나의 지오메트리·재질을 같이 씁니다.
+    const BLOOD_GEO = new THREE.BoxGeometry(0.07, 0.07, 0.07);
+    const BLOOD_MAT = new THREE.MeshBasicMaterial({ color: 0xb91c1c });
 
     // 산성 침 투사체 스폰 (스피터가 플레이어를 향해 발사)
     function spawnAcidSpit(startPos) {
@@ -1616,10 +1688,8 @@
     }
 
     function spawnBloodBurst(pos, count = 18) {
-      const geo = new THREE.BoxGeometry(0.07, 0.07, 0.07);
-      const mat = new THREE.MeshBasicMaterial({ color: 0xb91c1c });
       for (let i = 0; i < count; i++) {
-        const mesh = new THREE.Mesh(geo, mat);
+        const mesh = new THREE.Mesh(BLOOD_GEO, BLOOD_MAT);
         mesh.position.copy(pos);
         const vel = new THREE.Vector3(
           (Math.random() - 0.5) * 4.5,
@@ -1644,9 +1714,9 @@
     }
 
     function clearEnemies() {
-      zombies.forEach((z) => scene.remove(z.group));
+      zombies.forEach((z) => removeAndDispose(z.group));
       zombies.length = 0;
-      acidProjectiles.forEach((a) => scene.remove(a.mesh));
+      acidProjectiles.forEach((a) => removeAndDispose(a.mesh));
       acidProjectiles.length = 0;
     }
 
@@ -1773,7 +1843,7 @@
         if (hit.object.userData.isAcidSpit) {
           const idx = acidProjectiles.findIndex((proj) => proj.mesh === hit.object);
           if (idx !== -1) {
-            scene.remove(hit.object);
+            removeAndDispose(hit.object);
             acidProjectiles.splice(idx, 1);
           }
           spawnBloodBurst(hit.point, 16);
@@ -1927,10 +1997,41 @@
     // 소켓 이벤트 (폰 -> 화면)
     // =========================================================================
     socket.on('connect', () => {
+      if (retired) return; // 다른 화면이 이어받았으면 버튼을 누를 때까지 다시 등록하지 않습니다.
       socket.emit('register_role', 'display');
       // 화면이 다시 켜지면 지금 상태를 폰들에게 알려 줍니다.
       socket.emit('to_controllers', { event: 'game_state', data: { phase } });
     });
+
+    // 다른 PC 화면이 게임을 이어받음: 이 화면은 멈추고 폰에는 아무것도 보내지 않습니다.
+    socket.on('display_replaced', () => {
+      retired = true;
+      if (phase === 'playing') {
+        clearEnemies();
+        phase = 'lobby';
+        document.body.dataset.phase = 'lobby';
+      }
+      document.body.classList.remove('show-join', 'cinema-active');
+      document.body.classList.add('retired');
+      SLOTS.forEach((s) => { Object.assign(PLAYERS[s], freshPlayer(s)); });
+      renderAll();
+    });
+    $('btnTakeOver').addEventListener('click', () => {
+      retired = false;
+      document.body.classList.remove('retired');
+      socket.emit('register_role', 'display');
+      socket.emit('to_controllers', { event: 'game_state', data: { phase } });
+    });
+
+    // 폰이 새로 연결됐으면(새로고침 포함) 그 폰의 영점 번호를 처음부터 다시 셉니다.
+    // 폰은 새로고침하면 영점 번호를 0부터 다시 세기 때문에, 예전 번호와 비교하면 새 조준이 모두 버려져요.
+    function syncSession(p, session) {
+      if (session === undefined || session === null || session === p.session) return false;
+      p.session = session;
+      p.epoch = 0;
+      resetAim(p);
+      return true;
+    }
 
     socket.on('player_list_updated', (data) => {
       const list = (data && data.players) || [];
@@ -1940,12 +2041,18 @@
         const p = PLAYERS[s];
         if (info && !p.present) {
           // 새로 들어온 플레이어
-          Object.assign(p, freshPlayer(s), { present: true, connected: info.connected, centering: true });
+          Object.assign(p, freshPlayer(s), { present: true, connected: info.connected, centering: true, session: info.session });
           sendAmmo(p);
           toSlot(s, 'game_state', { phase });
           if (phase === 'playing') showBanner(`${s}P 참가`, p.color);
         } else if (info) {
           p.connected = info.connected;
+          if (info.connected && syncSession(p, info.session)) {
+            // 같은 자리로 다시 들어온 폰(새로고침 등): 화면이 가진 무기·탄·점수를 폰에 다시 알려 줍니다.
+            p.centering = true;
+            sendAmmo(p);
+            toSlot(s, 'game_state', { phase });
+          }
         } else if (p.present) {
           Object.assign(p, freshPlayer(s));
         }
@@ -1955,7 +2062,9 @@
 
     function playerOf(d) {
       const p = d && PLAYERS[d.slot];
-      return p && p.present ? p : null;
+      if (!p || !p.present || retired) return null;
+      syncSession(p, d.session);
+      return p;
     }
 
     socket.on('aim', (d) => {
@@ -2232,13 +2341,13 @@
         a.mesh.rotation.y += dt * 5;
         const relZ = a.mesh.position.z - camera.position.z;
         if (relZ > 0.4 || a.life <= 0) {
-          scene.remove(a.mesh);
+          removeAndDispose(a.mesh);
           acidProjectiles.splice(i, 1);
           continue;
         }
         if (relZ >= -0.8 && relZ <= 0.2) {
           damageTeam(16, '독액에 맞았어요');
-          scene.remove(a.mesh);
+          removeAndDispose(a.mesh);
           acidProjectiles.splice(i, 1);
         }
       }
@@ -2271,7 +2380,7 @@
           z.group.rotation.x = -Math.min(Math.PI / 2, z.deathProgress * (Math.PI / 2));
           z.group.position.y = -z.deathProgress * 0.2;
           if (z.deathProgress >= 1.8) {
-            scene.remove(z.group);
+            removeAndDispose(z.group);
             zombies.splice(i, 1);
           }
           continue;
@@ -2280,7 +2389,7 @@
         // 플레이어 카메라보다 뒤에 위치한 좀비(relZ > 0.3)는 즉시 제거 (보이지 않는 피격 버그 완벽 제거!)
         const relZ = z.group.position.z - camera.position.z;
         if (relZ > 0.3) {
-          scene.remove(z.group);
+          removeAndDispose(z.group);
           zombies.splice(i, 1);
           continue;
         }

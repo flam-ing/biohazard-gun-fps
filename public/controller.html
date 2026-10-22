@@ -644,6 +644,10 @@
     const TILT_BACK_DEG = -18;       // 다시 이만큼 올리면 장전
     const TILT_AFTER_SHOT_MS = 350;  // 쏜 직후의 흔들림으로는 장전하지 않습니다.
     const SWIPE_RELOAD_PX = 60;
+    // 방아쇠를 누른 손가락이 이만큼 아래로 움직이면 사격이 아니라 장전 쓸기로 봅니다.
+    const SWIPE_ARM_PX = 14;
+    // 손을 떼지 않고 누르고 있으면 이 시간 뒤에 바로 쏩니다. (짧게 톡 치면 손을 뗄 때 바로 쏨)
+    const TAP_HOLD_FIRE_MS = 70;
     const WEAPON_NAMES = { pistol: '권총', shotgun: '샷건', magnum: '매그넘' };
 
     document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
@@ -678,6 +682,7 @@
       sens: 1,
       weapon: 'pistol',
       invertX: false,
+      weaponKnown: false,   // 화면에서 내 무기 정보를 받았거나 내가 직접 골랐는지
       ammo: 12,
       maxAmmo: 12,
       score: 0,
@@ -771,6 +776,7 @@
     let last = null;          // 가장 최근 센서 방향
     let yaw = 0, pitch = 0, roll = 0;
     let lastAimSent = 0;
+    let aimTrailTimer = null;
     let lastShotAt = 0;
     let lastReloadAt = 0;
     let tiltDownSince = 0;
@@ -809,16 +815,28 @@
 
       checkTiltReload();
 
+      scheduleAim();
+    }
+
+    // 조준 값 보내기: 약 16ms마다 가장 최근 값을 보냅니다.
+    // 간격 안에 들어온 값은 버리지 않고 간격이 끝날 때 한 번 보내서, 마지막 값이 꼭 화면에 닿게 합니다.
+    function sendAim() {
+      aimTrailTimer = null;
       if (!state.slot || state.screen === 'intro' || state.screen === 'full') return;
-      const now = performance.now();
-      if (now - lastAimSent < AIM_INTERVAL_MS) return;
-      lastAimSent = now;
+      lastAimSent = performance.now();
       socket.volatile.emit('aim', {
         yaw: Math.round(yaw * 100) / 100,
         pitch: Math.round(pitch * 100) / 100,
         roll: Math.round(roll),
         epoch: state.epoch
       });
+    }
+    function scheduleAim() {
+      if (!state.slot || state.screen === 'intro' || state.screen === 'full') return;
+      if (aimTrailTimer) return; // 이미 보낼 예정. 그때 최신 값이 나갑니다.
+      const wait = AIM_INTERVAL_MS - (performance.now() - lastAimSent);
+      if (wait <= 0) sendAim();
+      else aimTrailTimer = setTimeout(sendAim, wait);
     }
 
     function checkTiltReload() {
@@ -860,22 +878,48 @@
       toast('장전');
     }
 
-    const swipeStart = new Map();
+    // 방아쇠: 짧게 치면 손을 뗄 때, 누르고 있으면 TAP_HOLD_FIRE_MS 뒤에 쏩니다.
+    // 그 전에 손가락이 아래로 움직이면 장전 쓸기로 보고 쏘지 않습니다. (예전에는 쓸 때마다 한 발이 나갔어요)
+    const touches = new Map();
     const trigger = $('trigger');
+    function fireTouch(t) {
+      if (t.decided) return;
+      t.decided = true;
+      clearTimeout(t.timer);
+      shoot();
+    }
     trigger.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      swipeStart.set(e.pointerId, { y: e.clientY, reloaded: false });
-      shoot();
+      const t = { y: e.clientY, x: e.clientX, decided: false, swiping: false, reloaded: false, timer: null };
+      t.timer = setTimeout(() => fireTouch(t), TAP_HOLD_FIRE_MS);
+      touches.set(e.pointerId, t);
     });
     function onSwipeMove(e) {
-      const s = swipeStart.get(e.pointerId);
-      if (!s || s.reloaded) return;
-      if (e.clientY - s.y > SWIPE_RELOAD_PX) {
-        s.reloaded = true;
+      const t = touches.get(e.pointerId);
+      if (!t) return;
+      const dy = e.clientY - t.y;
+      const dx = e.clientX - t.x;
+      if (!t.decided) {
+        if (dy > SWIPE_ARM_PX && dy > Math.abs(dx)) {
+          t.decided = true;
+          t.swiping = true;
+          clearTimeout(t.timer);
+        } else if (Math.hypot(dx, dy) > SWIPE_ARM_PX) {
+          fireTouch(t); // 위나 옆으로 움직이면 쓸기가 아니니 바로 쏩니다.
+        }
+      }
+      if (t.swiping && !t.reloaded && dy > SWIPE_RELOAD_PX) {
+        t.reloaded = true;
         doReload('swipe');
       }
     }
-    function onSwipeEnd(e) { swipeStart.delete(e.pointerId); }
+    function onSwipeEnd(e) {
+      const t = touches.get(e.pointerId);
+      if (!t) return;
+      touches.delete(e.pointerId);
+      if (e.type === 'pointerup') fireTouch(t);
+      else { t.decided = true; clearTimeout(t.timer); }
+    }
     window.addEventListener('pointermove', onSwipeMove);
     window.addEventListener('pointerup', onSwipeEnd);
     window.addEventListener('pointercancel', onSwipeEnd);
@@ -915,13 +959,15 @@
 
     function sendSettings() {
       if (!state.slot) return;
-      socket.emit('settings', {
+      const data = {
         sens: state.sens,
-        weapon: state.weapon,
         epoch: state.epoch,
         calibrated: state.calibrated,
         centering: state.screen === 'center'
-      });
+      };
+      // 새로고침한 직후에는 내 무기를 모릅니다. 기본값(권총)을 보내면 화면의 진짜 무기·탄이 덮어써지니 빼고 보냅니다.
+      if (state.weaponKnown) data.weapon = state.weapon;
+      socket.emit('settings', data);
     }
 
     function setSens(v, send = true) {
@@ -940,15 +986,18 @@
 
     document.querySelectorAll('#weaponSeg button').forEach((b) => b.addEventListener('click', () => {
       state.weapon = b.dataset.weapon;
+      state.weaponKnown = true;
       renderAmmo();
       socket.emit('weapon_change', { weapon: state.weapon });
       vibrate(20);
     }));
 
-    $('btnInvert').addEventListener('click', () => {
-      state.invertX = !state.invertX;
+    function setInvert(on) {
+      state.invertX = !!on;
       $('invertSwitch').classList.toggle('on', state.invertX);
-    });
+      try { localStorage.setItem('smartgun-invert', state.invertX ? '1' : '0'); } catch (e) { /* 저장 안 됨 */ }
+    }
+    $('btnInvert').addEventListener('click', () => setInvert(!state.invertX));
 
     $('btnRecenter').addEventListener('click', () => {
       closeSheet();
@@ -1079,7 +1128,7 @@
       if (!d) return;
       if (typeof d.ammo === 'number') state.ammo = d.ammo;
       if (typeof d.maxAmmo === 'number') state.maxAmmo = d.maxAmmo;
-      if (d.weapon) state.weapon = d.weapon;
+      if (d.weapon) { state.weapon = d.weapon; state.weaponKnown = true; }
       if (typeof d.score === 'number') state.score = d.score;
       renderAmmo();
     });
@@ -1096,6 +1145,7 @@
     try {
       const saved = parseFloat(localStorage.getItem('smartgun-sens'));
       if (saved >= 0.5 && saved <= 2) setSens(saved, false);
+      if (localStorage.getItem('smartgun-invert') === '1') setInvert(true);
     } catch (e) { /* 저장 안 됨 */ }
     renderStatus();
     renderAmmo();
