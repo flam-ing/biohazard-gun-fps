@@ -6,7 +6,7 @@
   <title>BIOHAZARD SMART-GUN</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Chakra+Petch:wght@500;600;700&family=Noto+Sans+KR:wght@400;500;700;900&family=Rubik+Dirt&family=Special+Elite&display=swap" rel="stylesheet" />
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script>
@@ -15,16 +15,24 @@
   </script>
   <style>
     :root {
-      --bg: #07090a;
-      --panel: rgba(9, 11, 12, 0.78);
-      --panel-solid: #0e1112;
-      --surface-2: #161a1b;
-      --line: rgba(255, 255, 255, 0.09);
+      --bg: #050404;
+      --panel: linear-gradient(180deg, rgba(24, 15, 15, 0.86), rgba(7, 5, 5, 0.9));
+      --panel-flat: rgba(10, 7, 7, 0.86);
+      --panel-solid: #0e0a0a;
+      --surface-2: #1c1414;
+      --line: rgba(255, 90, 80, 0.12);
       --line-strong: rgba(255, 255, 255, 0.2);
-      --text: #eef1ee;
-      --muted: #8d9691;
-      --dim: #5d6460;
-      --danger: #ff3b3b;
+      --text: #efe9e4;
+      --muted: #a09086;
+      --dim: #66574f;
+      --danger: #ff2b2b;
+      --blood: #8a0b10;
+      --blood-deep: #3d0306;
+      --hazard: #f2c12e;
+      --bevel: inset 0 1px 0 rgba(255, 255, 255, 0.07), inset 0 -2px 0 rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.85), 0 18px 40px rgba(0, 0, 0, 0.65);
+      --font-horror: 'Rubik Dirt', 'Black Han Sans', 'Noto Sans KR', sans-serif;
+      --font-heavy: 'Black Han Sans', 'Noto Sans KR', sans-serif;
+      --font-type: 'Special Elite', 'Noto Sans KR', monospace;
       --warn: #ff9f1c;
       --ok: #59e08a;
       --acid: #9be15d;
@@ -72,12 +80,40 @@
       inset: 0;
       pointer-events: none;
       z-index: 2;
-      background: radial-gradient(120% 90% at 50% 45%, transparent 55%, rgba(0, 0, 0, 0.65) 100%);
+      background: radial-gradient(115% 85% at 50% 48%, transparent 42%, rgba(0, 0, 0, 0.5) 72%, rgba(0, 0, 0, 0.92) 100%);
     }
     body[data-phase='lobby'] #shade {
       background:
-        radial-gradient(120% 90% at 50% 45%, transparent 35%, rgba(0, 0, 0, 0.7) 100%),
-        rgba(5, 7, 8, 0.45);
+        radial-gradient(110% 85% at 50% 50%, transparent 25%, rgba(0, 0, 0, 0.6) 70%, rgba(0, 0, 0, 0.95) 100%),
+        rgba(8, 2, 2, 0.28);
+    }
+
+    /* 필름 노이즈와 주사선: 낡은 CCTV 같은 느낌 */
+    #grain {
+      position: fixed;
+      inset: -50%;
+      pointer-events: none;
+      z-index: 3;
+      opacity: 0.11;
+      mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      animation: grain 0.9s steps(6) infinite;
+    }
+    @keyframes grain {
+      0% { transform: translate(0, 0); }
+      20% { transform: translate(-6%, 4%); }
+      40% { transform: translate(5%, -7%); }
+      60% { transform: translate(-3%, 8%); }
+      80% { transform: translate(7%, 2%); }
+      100% { transform: translate(-5%, -4%); }
+    }
+    #scan {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 3;
+      background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.16) 0 1px, transparent 1px 3px);
+      mix-blend-mode: multiply;
     }
 
     #damageVignette {
@@ -85,23 +121,60 @@
       inset: 0;
       pointer-events: none;
       z-index: 5;
-      background: radial-gradient(circle, transparent 45%, rgba(200, 20, 20, 0.8) 100%);
+      background:
+        radial-gradient(circle at 8% 12%, rgba(120, 0, 6, 0.85) 0 7%, transparent 18%),
+        radial-gradient(circle at 92% 86%, rgba(120, 0, 6, 0.8) 0 6%, transparent 17%),
+        radial-gradient(circle at 88% 10%, rgba(100, 0, 4, 0.7) 0 4%, transparent 12%),
+        radial-gradient(circle, transparent 38%, rgba(160, 6, 10, 0.85) 100%);
       opacity: 0;
-      transition: opacity 0.18s ease-out;
+      transition: opacity 0.35s ease-out;
+    }
+    /* 팀 체력이 낮으면 화면 가장자리가 심장 박동처럼 붉게 뜁니다 */
+    #lowHp {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 4;
+      opacity: 0;
+      background: radial-gradient(circle, transparent 48%, rgba(140, 0, 0, 0.7) 100%);
+    }
+    body.low-hp #lowHp { animation: heartbeat 0.9s ease-in-out infinite; }
+    @keyframes heartbeat {
+      0%, 100% { opacity: 0.25; }
+      12% { opacity: 0.85; }
+      24% { opacity: 0.35; }
+      36% { opacity: 0.75; }
+    }
+    /* 불이 나가는 순간 */
+    #blackout {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 6;
+      background: #000;
+      opacity: 0;
+    }
+    #gameCanvas.shake { animation: shake 0.32s linear; }
+    @keyframes shake {
+      0% { transform: translate(0, 0); filter: none; }
+      20% { transform: translate(-14px, 8px) rotate(-0.6deg); filter: saturate(1.6) hue-rotate(-12deg); }
+      40% { transform: translate(12px, -6px) rotate(0.5deg); }
+      60% { transform: translate(-8px, -4px); }
+      80% { transform: translate(5px, 3px); }
+      100% { transform: translate(0, 0); filter: none; }
     }
 
     .kicker {
-      font-family: var(--font-display);
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.24em;
-      text-transform: uppercase;
-      color: var(--muted);
+      font-family: var(--font-type);
+      font-size: 14px;
+      letter-spacing: 0.12em;
+      color: var(--danger);
     }
     .panel {
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: var(--r-lg);
+      border-radius: var(--r-md);
+      box-shadow: var(--bevel);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
     }
@@ -120,17 +193,21 @@
       pointer-events: none;
     }
     .brand { display: flex; align-items: center; gap: var(--s3); }
-    .brand-mark {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      border: 2px solid var(--danger);
-      display: grid;
-      place-items: center;
+    .brand-mark { width: 40px; height: 40px; color: var(--danger); filter: drop-shadow(0 0 8px rgba(255, 30, 30, 0.7)); animation: flicker 6s infinite; }
+    .brand-mark svg { width: 100%; height: 100%; display: block; }
+    .brand-name {
+      font-family: var(--font-horror);
+      font-size: 26px;
+      letter-spacing: 0.08em;
+      line-height: 1;
+      color: #e8dcd4;
+      text-shadow: 1px 1px 0 #5a0508, 2px 2px 0 #3d0306, 3px 3px 0 #1a0102, 0 0 18px rgba(255, 30, 30, 0.35);
     }
-    .brand-mark i { width: 10px; height: 10px; border-radius: 50%; background: var(--danger); box-shadow: 0 0 12px var(--danger); }
-    .brand-name { font-family: var(--font-display); font-weight: 700; font-size: 20px; letter-spacing: 0.14em; line-height: 1; }
-    .brand-sub { font-family: var(--font-display); font-size: 11px; letter-spacing: 0.3em; color: var(--muted); margin-top: 4px; }
+    .brand-sub { font-family: var(--font-type); font-size: 12px; letter-spacing: 0.24em; color: var(--muted); margin-top: 5px; }
+    @keyframes flicker {
+      0%, 18%, 22%, 62%, 64%, 100% { opacity: 1; }
+      20%, 63% { opacity: 0.25; }
+    }
 
     .mission {
       display: none;
@@ -140,13 +217,13 @@
     }
     body[data-phase='playing'] .mission { display: flex; }
     .m-block { display: flex; flex-direction: column; gap: 2px; }
-    .m-label { font-family: var(--font-display); font-size: 11px; letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase; }
+    .m-label { font-family: var(--font-type); font-size: 12px; letter-spacing: 0.14em; color: var(--muted); text-transform: uppercase; }
     .m-value { font-family: var(--font-display); font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
     .m-sector { font-size: 15px; font-weight: 700; white-space: nowrap; }
     .m-sep { width: 1px; align-self: stretch; background: var(--line); }
     .hp { display: flex; align-items: center; gap: var(--s3); }
-    .hp-bar { width: 140px; height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
-    .hp-fill { height: 100%; width: 100%; background: var(--ok); transition: width 0.2s, background 0.2s; }
+    .hp-bar { width: 140px; height: 10px; border-radius: 2px; background: #120a0a; overflow: hidden; box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.06); }
+    .hp-fill { height: 100%; width: 100%; background: var(--ok); transition: width 0.2s, background 0.2s; box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.25), 0 0 10px currentColor; }
     #ecgCanvas { width: 84px; height: 30px; display: block; }
 
     .top-right { justify-self: end; display: flex; align-items: center; gap: var(--s2); }
@@ -182,20 +259,66 @@
       pointer-events: none;
       display: none;
     }
-    body[data-phase='lobby'] .lobby { display: block; }
+    body[data-phase='lobby'] .lobby { display: block; perspective: 1400px; }
     .lobby-intro {
       position: absolute;
       left: var(--edge);
       top: 50%;
-      transform: translateY(-58%);
-      width: min(400px, 30vw);
+      transform: translateY(-56%) rotateY(9deg);
+      transform-origin: left center;
+      width: min(430px, 31vw);
       display: grid;
       gap: var(--s5);
       pointer-events: auto;
     }
-    .lobby-title { font-family: var(--font-display); font-weight: 700; font-size: clamp(40px, 4.4vw, 72px); line-height: 0.92; letter-spacing: 0.02em; }
-    .lobby-title span { display: block; color: var(--danger); }
+    /* 피가 흘러내리는 입체 제목 */
+    .lobby-title {
+      position: relative;
+      font-family: var(--font-horror);
+      font-weight: 400;
+      font-size: clamp(44px, 5.2vw, 92px);
+      line-height: 0.9;
+      letter-spacing: 0.02em;
+      color: #e9ddd5;
+      text-shadow:
+        1px 1px 0 #6b070b, 2px 2px 0 #5a0508, 3px 3px 0 #4a0407, 4px 4px 0 #3d0306,
+        5px 5px 0 #2e0204, 6px 6px 0 #1f0103, 7px 7px 0 #120101,
+        10px 14px 24px rgba(0, 0, 0, 0.9), 0 0 40px rgba(255, 20, 20, 0.25);
+      animation: titleFlicker 7s infinite;
+    }
+    .lobby-title span {
+      display: block;
+      color: var(--danger);
+      text-shadow:
+        1px 1px 0 #8a0b10, 2px 2px 0 #6b070b, 3px 3px 0 #4a0407, 4px 4px 0 #3d0306,
+        5px 5px 0 #2e0204, 6px 6px 0 #1f0103, 7px 7px 0 #120101,
+        10px 14px 24px rgba(0, 0, 0, 0.9), 0 0 36px rgba(255, 20, 20, 0.55);
+    }
+    .drip {
+      position: absolute;
+      top: 88%;
+      width: 6px;
+      border-radius: 0 0 6px 6px;
+      background: linear-gradient(180deg, #b0080e, #6b0509);
+      box-shadow: 2px 2px 0 #2e0204;
+      animation: drip 5s ease-in infinite;
+    }
+    .drip::after { content: ''; position: absolute; left: -2px; bottom: -6px; width: 10px; height: 10px; border-radius: 50%; background: #8a0b10; }
+    @keyframes drip { 0% { height: 0; } 60% { height: var(--h); } 100% { height: var(--h); opacity: 0.85; } }
+    @keyframes titleFlicker {
+      0%, 7%, 9%, 52%, 55%, 100% { opacity: 1; filter: none; }
+      8% { opacity: 0.55; filter: blur(1px); }
+      53% { opacity: 0.3; transform: translateX(3px); }
+      54% { opacity: 1; transform: translateX(-2px); }
+    }
     .lobby-lead { font-size: 16px; line-height: 1.6; color: var(--muted); }
+    .case-file {
+      padding: var(--s5);
+      display: grid;
+      gap: var(--s4);
+    }
+    .case-head { display: flex; justify-content: space-between; align-items: center; font-family: var(--font-type); font-size: 13px; color: var(--muted); letter-spacing: 0.1em; }
+    .stamp { font-family: var(--font-type); color: var(--danger); border: 2px solid var(--danger); padding: 1px 8px; transform: rotate(-6deg); opacity: 0.85; letter-spacing: 0.12em; }
     .steps { list-style: none; display: grid; gap: var(--s3); counter-reset: step; }
     .steps li { display: flex; gap: var(--s3); align-items: baseline; font-size: 15px; line-height: 1.5; }
     .steps li::before {
@@ -210,15 +333,20 @@
     }
     .start-row { display: flex; align-items: center; gap: var(--s4); }
     .btn-start {
-      padding: 14px 28px;
-      border-radius: var(--r-md);
-      background: var(--text);
-      color: #0a0c0c;
-      font-size: 17px;
-      font-weight: 900;
+      padding: 15px 30px;
+      border-radius: var(--r-sm);
+      background: linear-gradient(180deg, #e0242b, #8a0b10);
+      color: #fff;
+      font-family: var(--font-heavy);
+      font-size: 19px;
+      letter-spacing: 0.04em;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -3px 0 rgba(0, 0, 0, 0.4), 0 6px 0 #3d0306, 0 10px 24px rgba(200, 0, 0, 0.4);
+      text-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
+      transition: transform 0.08s, box-shadow 0.08s;
     }
-    .btn-start:hover { background: #fff; }
-    .btn-start:disabled { background: var(--surface-2); color: var(--dim); cursor: default; }
+    .btn-start:hover { filter: brightness(1.12); }
+    .btn-start:active { transform: translateY(4px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 2px 0 #3d0306; }
+    .btn-start:disabled { background: var(--surface-2); color: var(--dim); cursor: default; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 4px 0 #0a0606; text-shadow: none; filter: none; }
     .start-note { font-size: 13px; color: var(--muted); line-height: 1.5; }
     .start-note kbd { font-family: var(--font-display); font-size: 11px; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--line-strong); }
 
@@ -226,19 +354,74 @@
       position: absolute;
       right: var(--edge);
       top: 50%;
-      transform: translateY(-58%);
-      width: min(300px, 24vw);
-      min-width: 240px;
-      padding: var(--s5);
+      transform: translateY(-56%) rotateY(-9deg);
+      transform-origin: right center;
+      width: min(320px, 24vw);
+      min-width: 250px;
+      padding: 0 var(--s5) var(--s5);
       display: grid;
       gap: var(--s4);
       justify-items: center;
       text-align: center;
       pointer-events: auto;
+      overflow: hidden;
     }
-    .qr { width: 100%; aspect-ratio: 1; background: #fff; border-radius: var(--r-md); padding: 10px; }
+    /* 격리 구역 출입증 느낌의 노랑·검정 줄무늬 머리 */
+    .hazard-head {
+      justify-self: stretch;
+      margin: 0 calc(var(--s5) * -1);
+      padding: 9px var(--s4);
+      background: repeating-linear-gradient(-45deg, var(--hazard) 0 14px, #111 14px 28px);
+      box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.6);
+    }
+    .hazard-head b {
+      display: inline-block;
+      padding: 2px 10px;
+      background: #111;
+      color: var(--hazard);
+      font-family: var(--font-type);
+      font-size: 13px;
+      letter-spacing: 0.16em;
+    }
+    .qr {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
+      background: #fff;
+      border-radius: 4px;
+      padding: 10px;
+      box-shadow: 0 0 0 3px #111, 0 0 0 5px rgba(255, 43, 43, 0.6), 0 0 30px rgba(255, 30, 30, 0.35);
+    }
     .qr img { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
-    .join-title { font-size: 17px; font-weight: 700; }
+    .join-title { font-family: var(--font-heavy); font-size: 22px; letter-spacing: 0.02em; }
+
+    /* 게임 중에도 항상 보이는 작은 참가 QR */
+    .mini-join {
+      position: fixed;
+      right: var(--edge);
+      top: calc(var(--edge) + 64px);
+      z-index: 19;
+      width: 200px;
+      padding: 0 12px 12px;
+      display: none;
+      gap: 8px;
+      justify-items: center;
+      text-align: center;
+      pointer-events: none;
+      overflow: hidden;
+      transform: perspective(900px) rotateY(-10deg);
+      transform-origin: right center;
+    }
+    body[data-phase='playing'] .mini-join { display: grid; }
+    body.room-full .mini-join, body.cinema-active .mini-join, body.show-join .mini-join { display: none; }
+    .mini-join .hazard-head { margin: 0 -12px; padding: 5px 8px; }
+    .mini-join .hazard-head b { font-size: 11px; padding: 1px 6px; letter-spacing: 0.1em; }
+    .mini-join .qr { padding: 6px; box-shadow: 0 0 0 2px #111, 0 0 0 3px rgba(255, 43, 43, 0.6), 0 0 20px rgba(255, 30, 30, 0.3); }
+    .mini-title { font-family: var(--font-heavy); font-size: 17px; line-height: 1.2; }
+    .mini-sub { font-size: 13px; color: var(--muted); line-height: 1.3; }
+    .mini-sub b { color: var(--text); }
+    .mini-join.pulse { animation: miniPulse 1.4s ease-out; }
+    @keyframes miniPulse { 0% { box-shadow: var(--bevel), 0 0 0 0 rgba(255, 43, 43, 0.9); } 100% { box-shadow: var(--bevel), 0 0 0 26px rgba(255, 43, 43, 0); } }
     .join-url {
       font-family: var(--font-display);
       font-size: 13px;
@@ -257,7 +440,7 @@
       display: none;
       align-items: center;
       justify-content: center;
-      background: rgba(4, 5, 6, 0.6);
+      background: rgba(6, 2, 2, 0.66);
       backdrop-filter: blur(4px);
     }
     body.show-join .join-overlay { display: flex; }
@@ -275,10 +458,10 @@
     }
     body.fatal #fatalOverlay, body.retired #retiredOverlay { display: flex; }
     .notice-card { width: min(460px, 100%); padding: var(--s6); display: grid; gap: var(--s4); text-align: center; }
-    .notice-card h2 { font-size: 22px; font-weight: 900; line-height: 1.35; }
+    .notice-card h2 { font-family: var(--font-heavy); font-size: 24px; font-weight: 400; line-height: 1.35; }
     .notice-card p { font-size: 15px; color: var(--muted); line-height: 1.6; }
     .notice-card .btn-start { justify-self: center; }
-    .join-overlay .join-card { position: static; transform: none; width: 320px; }
+    .join-overlay .join-card { position: static; transform: perspective(900px) rotateX(4deg); width: 340px; }
     .btn-line {
       width: 100%;
       padding: 12px;
@@ -403,17 +586,17 @@
       transform: translate(-50%, -50%) scale(0.96);
       z-index: 25;
       pointer-events: none;
-      font-family: var(--font-display);
-      font-size: clamp(22px, 2.4vw, 40px);
-      font-weight: 700;
-      letter-spacing: 0.04em;
+      font-family: var(--font-heavy);
+      font-size: clamp(26px, 2.8vw, 48px);
+      letter-spacing: 0.03em;
       text-align: center;
       white-space: nowrap;
-      text-shadow: 0 2px 20px rgba(0, 0, 0, 0.9), 0 0 2px rgba(0, 0, 0, 0.9);
+      text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.9), 4px 4px 0 rgba(40, 0, 0, 0.8), 0 0 26px rgba(0, 0, 0, 0.95);
       opacity: 0;
       transition: opacity 0.16s, transform 0.16s;
     }
-    #banner.on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    #banner.on { opacity: 1; transform: translate(-50%, -50%) scale(1); animation: bannerJolt 0.28s steps(3) 1; }
+    @keyframes bannerJolt { 0% { transform: translate(-48%, -50%) scale(1.12); } 50% { transform: translate(-51%, -50%) scale(1.02); } 100% { transform: translate(-50%, -50%) scale(1); } }
 
     /* ---------- 하단 플레이어 카드 ---------- */
     .players {
@@ -432,22 +615,27 @@
     .pcard {
       position: relative;
       padding: var(--s3) var(--s4) var(--s3) calc(var(--s4) + 4px);
-      border-radius: var(--r-md);
-      background: var(--panel);
-      border: 1px solid var(--line);
+      border-radius: var(--r-sm);
+      background:
+        linear-gradient(100deg, color-mix(in srgb, var(--pc) 14%, transparent), transparent 45%),
+        linear-gradient(180deg, rgba(34, 28, 26, 0.9), rgba(10, 8, 8, 0.92));
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: var(--bevel);
       backdrop-filter: blur(10px);
       overflow: hidden;
       min-height: 92px;
       display: grid;
       gap: 6px;
       align-content: start;
+      transform: perspective(700px) rotateX(10deg);
+      transform-origin: bottom center;
     }
-    .pcard::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--pc); }
-    .pcard.empty { background: rgba(9, 11, 12, 0.45); border-style: dashed; }
+    .pcard::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--pc); box-shadow: 0 0 14px var(--pc); }
+    .pcard.empty { background: rgba(10, 7, 7, 0.5); border-style: dashed; box-shadow: none; }
     .pcard.empty::before { opacity: 0.25; }
     .pcard.away { opacity: 0.6; }
     .pc-head { display: flex; align-items: center; gap: var(--s2); }
-    .pc-num { font-family: var(--font-display); font-weight: 700; font-size: 18px; color: var(--pc); line-height: 1; }
+    .pc-num { font-family: var(--font-heavy); font-size: 22px; color: var(--pc); line-height: 1; text-shadow: 0 0 10px color-mix(in srgb, var(--pc) 60%, transparent), 2px 2px 0 rgba(0, 0, 0, 0.8); }
     .pc-status { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .pc-score { margin-left: auto; font-family: var(--font-display); font-weight: 700; font-size: 20px; font-variant-numeric: tabular-nums; line-height: 1; }
     .pc-combo { font-family: var(--font-display); font-size: 13px; font-weight: 700; color: var(--warn); }
@@ -506,7 +694,7 @@
       border: 1px solid var(--line);
       border-left: 3px solid var(--acid);
     }
-    .radio-speaker { font-family: var(--font-display); font-size: 12px; letter-spacing: 0.2em; color: var(--acid); margin-bottom: 6px; }
+    .radio-speaker { font-family: var(--font-type); font-size: 13px; letter-spacing: 0.16em; color: var(--acid); margin-bottom: 6px; }
     .radio-text { font-size: 17px; font-weight: 500; line-height: 1.55; }
     body.cinema-active .hud-top, body.cinema-active .players, body.cinema-active .xh { visibility: hidden; }
 
@@ -515,6 +703,24 @@
       #ecgCanvas { display: none; }
       .hp-bar { width: 110px; }
       .brand-sub { display: none; }
+    }
+    @media (max-height: 860px) {
+      .mini-join { width: 156px; }
+      .lobby-intro, .join-card { top: calc(var(--edge) + 60px); }
+      .lobby-intro { transform: rotateY(9deg); gap: var(--s3); }
+      .join-card { transform: rotateY(-9deg); gap: var(--s3); width: min(280px, 22vw); }
+      .lobby .kicker { display: none; }
+      .lobby-title { font-size: clamp(40px, 4.2vw, 64px); }
+      .case-file { padding: var(--s4); gap: var(--s3); }
+      .lobby-lead { font-size: 14px; line-height: 1.5; }
+      .steps { gap: 6px; }
+      .steps li { font-size: 14px; }
+      .btn-start { padding: 12px 24px; font-size: 17px; }
+    }
+    @media (max-height: 760px) {
+      .mini-join { width: 140px; top: calc(var(--edge) + 58px); }
+      .mini-title { font-size: 15px; }
+      .lobby-lead { display: none; }
     }
     @media (max-width: 1100px) {
       .lobby-intro { width: 34vw; }
@@ -528,7 +734,11 @@
 <body data-phase="lobby">
   <canvas id="gameCanvas"></canvas>
   <div id="shade"></div>
+  <div id="scan"></div>
+  <div id="grain"></div>
+  <div id="lowHp"></div>
   <div id="damageVignette"></div>
+  <div id="blackout"></div>
 
   <div id="cinemaTopBar" class="cinema-bar cinema-top"></div>
   <div id="cinemaBottomBar" class="cinema-bar cinema-bottom"></div>
@@ -545,7 +755,17 @@
   <!-- 상단 -->
   <header class="hud-top">
     <div class="brand">
-      <div class="brand-mark"><i></i></div>
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 100 100" fill="currentColor">
+          <circle cx="50" cy="53" r="7" />
+          <g fill="none" stroke="currentColor" stroke-width="6">
+            <circle cx="50" cy="32" r="16" />
+            <circle cx="31" cy="64" r="16" />
+            <circle cx="69" cy="64" r="16" />
+            <circle cx="50" cy="53" r="22" stroke-width="4" stroke-dasharray="12 10" />
+          </g>
+        </svg>
+      </div>
       <div>
         <div class="brand-name">BIOHAZARD</div>
         <div class="brand-sub">SMART-GUN CO-OP</div>
@@ -580,14 +800,17 @@
   <section class="lobby">
     <div class="lobby-intro">
       <div class="kicker">4인 협동 · 폰이 총이 돼요</div>
-      <h1 class="lobby-title">SMART<span>GUN</span></h1>
-      <p class="lobby-lead">폰으로 화면을 겨누고 눌러서 쏘세요. 최대 4명이 함께 좀비를 막아요.</p>
-      <ol class="steps">
-        <li>폰 카메라로 오른쪽 QR을 찍어요.</li>
-        <li>"시작하기"를 누르고 센서를 허용해요.</li>
-        <li>화면 가운데 표적을 겨누고 폰을 눌러요.</li>
-        <li>모두 준비되면 폰이나 여기서 시작해요.</li>
-      </ol>
+      <h1 class="lobby-title">BIO<span>HAZARD</span><i class="drip" style="left: 18%; --h: 34px; animation-delay: 0.4s"></i><i class="drip" style="left: 47%; --h: 58px; animation-delay: 1.6s"></i><i class="drip" style="left: 81%; --h: 22px; animation-delay: 2.9s"></i></h1>
+      <div class="case-file panel">
+        <div class="case-head"><span>CASE 04 · 격리 연구동</span><span class="stamp">극비</span></div>
+        <p class="lobby-lead">폰으로 화면을 겨누고 눌러서 쏘세요. 최대 4명이 함께 좀비를 막아요. 게임 중에도 QR을 찍으면 바로 들어와요.</p>
+        <ol class="steps">
+          <li>폰 카메라로 오른쪽 QR을 찍어요.</li>
+          <li>"시작하기"를 누르고 센서를 허용해요.</li>
+          <li>화면 가운데 표적을 겨누고 폰을 눌러요.</li>
+          <li>모두 준비되면 폰이나 여기서 시작해요.</li>
+        </ol>
+      </div>
       <div class="start-row">
         <button class="btn-start" id="btnStartGame" disabled>게임 시작</button>
         <div class="start-note" id="startNote">폰을 먼저 연결하세요</div>
@@ -595,6 +818,7 @@
     </div>
 
     <aside class="join-card panel" id="joinCard">
+      <div class="hazard-head"><b>QUARANTINE ACCESS</b></div>
       <div class="join-title">폰으로 참가</div>
       <div class="qr"><img class="qrImage" alt="컨트롤러 접속 QR" src="" /></div>
       <div class="join-url controllerUrl">불러오는 중</div>
@@ -602,8 +826,17 @@
     </aside>
   </section>
 
+  <!-- 게임 중에 항상 떠 있는 참가 QR (자리가 남아 있을 때만) -->
+  <aside class="mini-join panel" id="miniJoin">
+    <div class="hazard-head"><b>중간 참가</b></div>
+    <div class="qr"><img class="qrImage" alt="게임 중 참가 QR" src="" /></div>
+    <div class="mini-title">찍으면 <span id="miniNext">2P</span>로 참가</div>
+    <div class="mini-sub">남은 자리 <b class="slotsLeft">4</b></div>
+  </aside>
+
   <div class="join-overlay" id="joinOverlay">
     <aside class="join-card panel">
+      <div class="hazard-head"><b>QUARANTINE ACCESS</b></div>
       <div class="join-title">폰으로 참가</div>
       <div class="qr"><img class="qrImage" alt="컨트롤러 접속 QR" src="" /></div>
       <div class="join-url controllerUrl">불러오는 중</div>
@@ -697,8 +930,50 @@
       if (!audioCtx) {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         audioCtx = new AudioContext();
+        startAmbience();
       }
       if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    // 배경에 낮게 깔리는 웅웅거림. 가끔 멀리서 쇠 긁는 소리, 비명, 속삭임이 들립니다.
+    function startAmbience() {
+      const out = audioCtx.createGain();
+      out.gain.value = 0.05;
+      const lp = audioCtx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 170;
+      lp.connect(out);
+      out.connect(audioCtx.destination);
+      [55, 55.6, 82.4].forEach((f) => {
+        const o = audioCtx.createOscillator();
+        o.type = 'sawtooth';
+        o.frequency.value = f;
+        o.connect(lp);
+        o.start();
+      });
+      const lfo = audioCtx.createOscillator();
+      const lfoGain = audioCtx.createGain();
+      lfo.frequency.value = 0.07;
+      lfoGain.gain.value = 70;
+      lfo.connect(lfoGain);
+      lfoGain.connect(lp.frequency);
+      lfo.start();
+      const creep = () => {
+        const kinds = ['metal_scrape', 'far_scream', 'whisper', 'metal_scrape', 'whisper'];
+        playSound(kinds[Math.floor(Math.random() * kinds.length)]);
+        setTimeout(creep, 7000 + Math.random() * 11000);
+      };
+      setTimeout(creep, 5000);
+    }
+
+    function noiseSource(dur, decay) {
+      const size = Math.floor(audioCtx.sampleRate * dur);
+      const buf = audioCtx.createBuffer(1, size, audioCtx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < size; i++) d[i] = (Math.random() * 2 - 1) * (decay ? Math.exp(-i / (audioCtx.sampleRate * decay)) : 1);
+      const src = audioCtx.createBufferSource();
+      src.buffer = buf;
+      return src;
     }
 
     function playSound(type) {
@@ -910,6 +1185,108 @@
         f.connect(gain);
         gain.connect(audioCtx.destination);
         s.start(now);
+      } else if (type === 'heartbeat') {
+        [0, 0.16].forEach((delay, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(idx === 0 ? 62 : 52, now + delay);
+          osc.frequency.exponentialRampToValueAtTime(30, now + delay + 0.14);
+          gain.gain.setValueAtTime(idx === 0 ? 0.6 : 0.4, now + delay);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + delay + 0.16);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + delay);
+          osc.stop(now + delay + 0.17);
+        });
+      } else if (type === 'thunder') {
+        const src = noiseSource(2.6, 0.7);
+        const f = audioCtx.createBiquadFilter();
+        f.type = 'lowpass';
+        f.frequency.setValueAtTime(400, now);
+        f.frequency.exponentialRampToValueAtTime(80, now + 2.4);
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.7, now + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 2.6);
+        src.connect(f);
+        f.connect(gain);
+        gain.connect(audioCtx.destination);
+        src.start(now);
+      } else if (type === 'metal_scrape') {
+        const osc = audioCtx.createOscillator();
+        const f = audioCtx.createBiquadFilter();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        const base = 300 + Math.random() * 500;
+        osc.frequency.setValueAtTime(base, now);
+        osc.frequency.linearRampToValueAtTime(base * (0.7 + Math.random() * 0.6), now + 1.2);
+        f.type = 'bandpass';
+        f.frequency.value = 1400;
+        f.Q.value = 12;
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.05, now + 0.3);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.3);
+        osc.connect(f);
+        f.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 1.35);
+      } else if (type === 'far_scream') {
+        const osc = audioCtx.createOscillator();
+        const vib = audioCtx.createOscillator();
+        const vibGain = audioCtx.createGain();
+        const f = audioCtx.createBiquadFilter();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(700, now);
+        osc.frequency.exponentialRampToValueAtTime(320, now + 1.4);
+        vib.frequency.value = 7;
+        vibGain.gain.value = 25;
+        vib.connect(vibGain);
+        vibGain.connect(osc.frequency);
+        f.type = 'lowpass';
+        f.frequency.value = 1100;
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.03, now + 0.2);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+        osc.connect(f);
+        f.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        vib.start(now);
+        osc.stop(now + 1.55);
+        vib.stop(now + 1.55);
+      } else if (type === 'whisper') {
+        const src = noiseSource(1.4, 0);
+        const f = audioCtx.createBiquadFilter();
+        f.type = 'bandpass';
+        f.frequency.setValueAtTime(2600, now);
+        f.frequency.linearRampToValueAtTime(3400, now + 1.4);
+        f.Q.value = 3;
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.0001, now);
+        [0.2, 0.5, 0.8, 1.1].forEach((t) => {
+          gain.gain.linearRampToValueAtTime(0.04 + Math.random() * 0.03, now + t);
+          gain.gain.linearRampToValueAtTime(0.004, now + t + 0.14);
+        });
+        src.connect(f);
+        f.connect(gain);
+        gain.connect(audioCtx.destination);
+        src.start(now);
+      } else if (type === 'buzz') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.value = 120;
+        gain.gain.setValueAtTime(0.05, now);
+        gain.gain.setValueAtTime(0.0, now + 0.05);
+        gain.gain.setValueAtTime(0.05, now + 0.09);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.32);
       } else if (type === 'bloater_roar') {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
@@ -1061,6 +1438,8 @@
       const hpFill = $('hpFill');
       hpFill.style.width = `${teamHp}%`;
       hpFill.style.background = teamHp > 60 ? 'var(--ok)' : teamHp > 25 ? 'var(--warn)' : 'var(--danger)';
+      hpFill.style.color = hpFill.style.background;
+      document.body.classList.toggle('low-hp', phase === 'playing' && teamHp <= 35);
     }
 
     function renderLobby() {
@@ -1069,6 +1448,13 @@
       document.querySelectorAll('.connCount').forEach((el) => { el.textContent = `${connected.length}/4`; });
       document.querySelectorAll('.connDot').forEach((el) => el.classList.toggle('ok', connected.length > 0));
       document.querySelectorAll('.slotsLeft').forEach((el) => { el.textContent = String(4 - present.length); });
+      // 게임 중 참가 QR: 다음에 들어올 사람이 몇 P가 되는지 보여 주고, 꽉 차면 숨깁니다.
+      const nextFree = SLOTS.find((s) => !PLAYERS[s].present);
+      document.body.classList.toggle('room-full', !nextFree);
+      if (nextFree) {
+        $('miniNext').textContent = `${nextFree}P`;
+        $('miniNext').style.color = SLOT_COLORS[nextFree];
+      }
       const btn = $('btnStartGame');
       btn.disabled = connected.length === 0;
       const ready = connected.filter((s) => PLAYERS[s].calibrated && !PLAYERS[s].centering);
@@ -1172,33 +1558,266 @@
     // Three.js 3D 호러 렌더러 및 씬 구성
     // =========================================================================
     const canvas = document.getElementById('gameCanvas');
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.5;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x040609);
-    scene.fog = new THREE.FogExp2(0x05070b, 0.042);
+    scene.background = new THREE.Color(0x020203);
+    scene.fog = new THREE.FogExp2(0x05070b, 0.05);
 
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
     camera.position.set(0, 1.65, 4.5);
 
+    // =========================================================================
+    // 절차적 텍스처: 이미지 파일 없이 캔버스로 낡은 연구동 벽·바닥·피 자국을 그립니다.
+    // 매번 같은 모양이 나오도록 시드가 있는 난수를 씁니다.
+    // =========================================================================
+    function seeded(seed) {
+      return () => {
+        seed = (seed + 0x6d2b79f5) | 0;
+        let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    const MAX_ANISO = renderer.capabilities.getMaxAnisotropy();
+    function canvasTexture(size, draw, repeatX = 1, repeatY = 1, h = size) {
+      const c = document.createElement('canvas');
+      c.width = size;
+      c.height = h;
+      const g = c.getContext('2d');
+      draw(g, size, h);
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(repeatX, repeatY);
+      tex.anisotropy = MAX_ANISO;
+      tex.redrawCanvas = () => { draw(g, size, h); tex.needsUpdate = true; };
+      return tex;
+    }
+    function speckle(g, W, H, rnd, n, light, dark) {
+      for (let i = 0; i < n; i++) {
+        const v = rnd();
+        g.fillStyle = v > 0.5 ? `rgba(255,255,255,${(v - 0.5) * light})` : `rgba(0,0,0,${(0.5 - v) * dark})`;
+        g.fillRect(rnd() * W, rnd() * H, 1 + rnd() * 2, 1 + rnd() * 2);
+      }
+    }
+    function grime(g, W, H, rnd, n, color, maxR) {
+      for (let i = 0; i < n; i++) {
+        const x = rnd() * W;
+        const y = rnd() * H;
+        const r = 10 + rnd() * maxR;
+        const grad = g.createRadialGradient(x, y, 0, x, y, r);
+        grad.addColorStop(0, color);
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = grad;
+        g.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+    }
+    function splat(g, x, y, r, rnd, color = 'rgba(92,4,8,0.92)') {
+      g.fillStyle = color;
+      g.beginPath();
+      for (let a = 0; a <= Math.PI * 2 + 0.01; a += Math.PI / 10) {
+        const rr = r * (0.7 + rnd() * 0.45);
+        g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+      }
+      g.fill();
+      for (let i = 0; i < 14; i++) {
+        const a = rnd() * Math.PI * 2;
+        const d = r * (1 + rnd() * 1.4);
+        g.beginPath();
+        g.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, 1 + rnd() * r * 0.13, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+
+    // 벽: 위는 얼룩진 콘크리트, 아래는 깨진 초록 타일. 물 자국과 피가 묻어 있습니다.
+    const wallTex = canvasTexture(512, (g, S) => {
+      const rnd = seeded(11);
+      g.fillStyle = '#4b4d47';
+      g.fillRect(0, 0, S, S);
+      const tileTop = S * 0.56;
+      for (let y = tileTop; y < S; y += 48) {
+        for (let x = 0; x < S; x += 64) {
+          const l = 26 + rnd() * 10;
+          g.fillStyle = `hsl(${140 + rnd() * 20}, 14%, ${l}%)`;
+          g.fillRect(x + 2, y + 2, 60, 44);
+          if (rnd() < 0.12) {
+            g.strokeStyle = 'rgba(0,0,0,0.55)';
+            g.beginPath();
+            g.moveTo(x + rnd() * 60, y + 2);
+            g.lineTo(x + rnd() * 60, y + 46);
+            g.stroke();
+          }
+        }
+      }
+      g.fillStyle = '#1b1d19';
+      g.fillRect(0, tileTop - 10, S, 10);
+      speckle(g, S, S, rnd, 9000, 0.12, 0.35);
+      grime(g, S, S, rnd, 26, 'rgba(20,16,10,0.45)', 70);
+      for (let i = 0; i < 40; i++) {
+        const x = rnd() * S;
+        const len = 60 + rnd() * 260;
+        const grad = g.createLinearGradient(0, 0, 0, len);
+        grad.addColorStop(0, 'rgba(40,28,14,0.55)');
+        grad.addColorStop(1, 'rgba(40,28,14,0)');
+        g.fillStyle = grad;
+        g.fillRect(x, 0, 2 + rnd() * 5, len);
+      }
+      const dirt = g.createLinearGradient(0, S * 0.82, 0, S);
+      dirt.addColorStop(0, 'rgba(10,8,6,0)');
+      dirt.addColorStop(1, 'rgba(10,8,6,0.8)');
+      g.fillStyle = dirt;
+      g.fillRect(0, S * 0.82, S, S * 0.18);
+      splat(g, S * 0.3, S * 0.48, 22, rnd);
+      // 벽을 따라 끌린 핏자국
+      for (let i = 0; i < 26; i++) splat(g, S * 0.62 + i * 6, S * 0.66 + Math.sin(i * 0.5) * 6, 9 - i * 0.25, rnd, 'rgba(80,3,6,0.7)');
+    });
+    const concreteTex = canvasTexture(256, (g, S) => {
+      const rnd = seeded(23);
+      g.fillStyle = '#3e403b';
+      g.fillRect(0, 0, S, S);
+      speckle(g, S, S, rnd, 5000, 0.14, 0.4);
+      grime(g, S, S, rnd, 16, 'rgba(15,12,8,0.5)', 50);
+    });
+    // 바닥: 더럽고 젖은 타일. 줄눈은 범프 맵으로 실제로 파여 보이게 합니다.
+    const floorTex = canvasTexture(512, (g, S) => {
+      const rnd = seeded(37);
+      g.fillStyle = '#0b0c0b';
+      g.fillRect(0, 0, S, S);
+      for (let y = 0; y < S; y += 64) {
+        for (let x = 0; x < S; x += 64) {
+          const l = 15 + rnd() * 9;
+          g.fillStyle = `hsl(${30 + rnd() * 20}, 6%, ${l}%)`;
+          g.fillRect(x + 3, y + 3, 58, 58);
+        }
+      }
+      speckle(g, S, S, rnd, 8000, 0.1, 0.4);
+      grime(g, S, S, rnd, 30, 'rgba(0,0,0,0.5)', 80);
+      for (let i = 0; i < 30; i++) {
+        g.strokeStyle = `rgba(200,190,170,${0.05 + rnd() * 0.08})`;
+        g.beginPath();
+        const x = rnd() * S;
+        const y = rnd() * S;
+        g.moveTo(x, y);
+        g.lineTo(x + (rnd() - 0.5) * 120, y + (rnd() - 0.5) * 40);
+        g.stroke();
+      }
+    }, 9, 32);
+    const ceilingTex = canvasTexture(256, (g, S) => {
+      const rnd = seeded(51);
+      g.fillStyle = '#121313';
+      g.fillRect(0, 0, S, S);
+      for (let y = 0; y < S; y += 128) {
+        for (let x = 0; x < S; x += 128) {
+          g.fillStyle = `hsl(40, 5%, ${12 + rnd() * 6}%)`;
+          g.fillRect(x + 4, y + 4, 120, 120);
+        }
+      }
+      speckle(g, S, S, rnd, 3000, 0.1, 0.4);
+      grime(g, S, S, rnd, 10, 'rgba(50,30,10,0.5)', 60);
+    }, 9, 32);
+    const hazardTex = canvasTexture(256, (g, S) => {
+      const rnd = seeded(61);
+      g.fillStyle = '#111';
+      g.fillRect(0, 0, S, S);
+      g.fillStyle = '#d9a91f';
+      for (let i = -S; i < S * 2; i += 64) {
+        g.beginPath();
+        g.moveTo(i, 0);
+        g.lineTo(i + 32, 0);
+        g.lineTo(i + 32 - S, S);
+        g.lineTo(i - S, S);
+        g.fill();
+      }
+      speckle(g, S, S, rnd, 4000, 0.1, 0.6);
+      grime(g, S, S, rnd, 14, 'rgba(20,10,0,0.6)', 50);
+    });
+    // 피 웅덩이 (가장자리는 투명)
+    const bloodPoolTex = canvasTexture(256, (g, S) => {
+      const rnd = seeded(71);
+      g.clearRect(0, 0, S, S);
+      splat(g, S / 2, S / 2, S * 0.24, rnd, 'rgba(70,2,5,0.95)');
+      splat(g, S * 0.62, S * 0.42, S * 0.12, rnd, 'rgba(110,6,10,0.85)');
+    });
+    // 좀비 피부: 썩은 얼룩과 핏줄
+    const skinTex = canvasTexture(256, (g, S) => {
+      const rnd = seeded(83);
+      g.fillStyle = '#c9c2b4';
+      g.fillRect(0, 0, S, S);
+      grime(g, S, S, rnd, 30, 'rgba(90,60,40,0.45)', 40);
+      grime(g, S, S, rnd, 12, 'rgba(110,10,10,0.5)', 26);
+      speckle(g, S, S, rnd, 3500, 0.2, 0.5);
+      g.strokeStyle = 'rgba(60,20,40,0.45)';
+      for (let i = 0; i < 24; i++) {
+        g.beginPath();
+        let x = rnd() * S;
+        let y = rnd() * S;
+        g.moveTo(x, y);
+        for (let k = 0; k < 6; k++) { x += (rnd() - 0.5) * 30; y += (rnd() - 0.5) * 30; g.lineTo(x, y); }
+        g.stroke();
+      }
+    });
+    const clothTex = canvasTexture(256, (g, S) => {
+      const rnd = seeded(97);
+      g.fillStyle = '#b9b9b9';
+      g.fillRect(0, 0, S, S);
+      speckle(g, S, S, rnd, 4000, 0.15, 0.5);
+      grime(g, S, S, rnd, 20, 'rgba(40,30,20,0.55)', 50);
+      for (let i = 0; i < 4; i++) splat(g, rnd() * S, rnd() * S, 12 + rnd() * 18, rnd, 'rgba(90,0,6,0.85)');
+    });
+    // 벽에 피로 쓴 글씨
+    function bloodWritingTex(text) {
+      return canvasTexture(512, (g, W, H) => {
+        const rnd = seeded(text.length * 131);
+        g.clearRect(0, 0, W, H);
+        g.save();
+        g.translate(W / 2, H / 2);
+        g.rotate(-0.06);
+        g.font = `${H * 0.52}px "Black Han Sans", "Noto Sans KR", sans-serif`;
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.fillStyle = 'rgba(120,4,8,0.95)';
+        g.fillText(text, 0, 0);
+        g.restore();
+        g.fillStyle = 'rgba(110,4,8,0.9)';
+        for (let i = 0; i < 16; i++) {
+          const x = W * 0.12 + rnd() * W * 0.76;
+          const y = H * 0.6 + rnd() * H * 0.1;
+          const len = 10 + rnd() * H * 0.35;
+          g.fillRect(x, y, 2 + rnd() * 3, len);
+          g.beginPath();
+          g.arc(x + 2, y + len, 3, 0, Math.PI * 2);
+          g.fill();
+        }
+      }, 1, 1, 256);
+    }
+
     // 조명: 어두운 폐연구동 분위기 + 붉은 비상등 + 총구 전술 라이트
-    const ambientLight = new THREE.AmbientLight(0x1e293b, 0.45);
+    const ambientLight = new THREE.HemisphereLight(0x3a4656, 0x120606, 0.55);
     scene.add(ambientLight);
 
     const emergencyLight = new THREE.PointLight(0xdc2626, 1.6, 28);
     emergencyLight.position.set(0, 4.2, -8);
     scene.add(emergencyLight);
 
-    const coldMoonLight = new THREE.DirectionalLight(0x64748b, 0.5);
+    // 옥상에서는 번개가 칠 때 이 빛이 번쩍입니다.
+    const coldMoonLight = new THREE.DirectionalLight(0x64748b, 0.35);
     coldMoonLight.position.set(4, 10, 6);
     scene.add(coldMoonLight);
 
-    // 아이폰 조준 방향을 비추는 전술 플래시라이트 (SpotLight)
-    const flashlight = new THREE.SpotLight(0xfffbeb, 2.6, 35, Math.PI / 6.5, 0.45, 1.2);
+    // 아이폰 조준 방향을 비추는 전술 플래시라이트 (SpotLight). 좀비 그림자가 벽과 바닥에 드리워집니다.
+    const flashlight = new THREE.SpotLight(0xfff3d6, 3.2, 38, Math.PI / 7, 0.5, 1.3);
     flashlight.position.set(0.3, 1.4, 4.2);
+    flashlight.castShadow = true;
+    flashlight.shadow.mapSize.set(1024, 1024);
+    flashlight.shadow.camera.near = 0.4;
+    flashlight.shadow.camera.far = 40;
+    flashlight.shadow.bias = -0.0006;
     const flashlightTarget = new THREE.Object3D();
     flashlightTarget.position.set(0, 1.5, -10);
     scene.add(flashlightTarget);
@@ -1210,71 +1829,358 @@
     muzzleLight.position.set(0.35, 1.35, 3.6);
     scene.add(muzzleLight);
 
-    // 바닥 & 복도 환경 (Z = +15 ~ -95까지 110m 확장)
-    const floorGeo = new THREE.PlaneGeometry(36, 130, 12, 30);
+    // =========================================================================
+    // 복도: 벽, 바닥, 천장, 기둥 (Z = +15 ~ -64), 그 뒤는 옥상
+    // =========================================================================
+    const CORRIDOR_HALF = 6.3;
+    const CORRIDOR_END = -64;
+    const CORRIDOR_START = 15;
+
     const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x11151c,
-      roughness: 0.85,
-      metalness: 0.15
+      color: 0x8a8378,
+      map: floorTex,
+      bumpMap: floorTex,
+      bumpScale: 0.035,
+      roughness: 0.42, // 젖은 바닥이라 손전등이 번들거리게 비칩니다
+      metalness: 0.2
     });
-    const floor = new THREE.Mesh(floorGeo, floorMat);
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(36, 130), floorMat);
     floor.rotation.x = -Math.PI / 2;
     floor.position.z = -40;
+    floor.receiveShadow = true;
     scene.add(floor);
 
-    // 천장
-    const ceilingGeo = new THREE.PlaneGeometry(36, 130, 12, 30);
-    const ceilingMat = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.95 });
-    const ceiling = new THREE.Mesh(ceilingGeo, ceilingMat);
+    const corridorLen = CORRIDOR_START - CORRIDOR_END;
+    const corridorMid = (CORRIDOR_START + CORRIDOR_END) / 2;
+    ceilingTex.repeat.set(CORRIDOR_HALF * 2 / 4, corridorLen / 4);
+    const ceiling = new THREE.Mesh(
+      new THREE.PlaneGeometry(CORRIDOR_HALF * 2, corridorLen),
+      new THREE.MeshStandardMaterial({ map: ceilingTex, bumpMap: ceilingTex, bumpScale: 0.03, roughness: 0.95 })
+    );
     ceiling.rotation.x = Math.PI / 2;
-    ceiling.position.y = 5.2;
-    ceiling.position.z = -40;
+    ceiling.position.set(0, 5.4, corridorMid);
     scene.add(ceiling);
 
-    // 복도 기둥들 (Z = 8 ~ -85)
-    const pillarGeo = new THREE.BoxGeometry(1.1, 5.5, 1.1);
-    const pillarMat = new THREE.MeshStandardMaterial({ color: 0x1a202c, roughness: 0.9 });
-    for (let z = 8; z >= -85; z -= 6) {
-      [-5.2, 5.2].forEach((x) => {
+    wallTex.repeat.set(corridorLen / 5.4, 1);
+    const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, bumpMap: wallTex, bumpScale: 0.04, roughness: 0.88 });
+    [-1, 1].forEach((side) => {
+      const wall = new THREE.Mesh(new THREE.PlaneGeometry(corridorLen, 5.4), wallMat);
+      wall.position.set(side * CORRIDOR_HALF, 2.7, corridorMid);
+      wall.rotation.y = side < 0 ? Math.PI / 2 : -Math.PI / 2;
+      wall.receiveShadow = true;
+      scene.add(wall);
+    });
+
+    // 복도 기둥들
+    const pillarGeo = new THREE.BoxGeometry(1.0, 5.4, 1.0);
+    const pillarMat = new THREE.MeshStandardMaterial({ map: concreteTex, bumpMap: concreteTex, bumpScale: 0.05, roughness: 0.9 });
+    for (let z = 8; z >= CORRIDOR_END + 2; z -= 6) {
+      [-1, 1].forEach((side) => {
         const pillar = new THREE.Mesh(pillarGeo, pillarMat);
-        pillar.position.set(x, 2.6, z);
+        pillar.position.set(side * (CORRIDOR_HALF - 0.45), 2.7, z);
+        pillar.castShadow = true;
+        pillar.receiveShadow = true;
         scene.add(pillar);
       });
     }
 
-    // 엄폐물 바리케이드 박스들
+    // 섹터 사이 격리문: 노랑·검정 줄무늬 문틀과 반쯤 열린 철문
+    const hazardMat = new THREE.MeshStandardMaterial({ map: hazardTex, roughness: 0.7, metalness: 0.3 });
+    const doorMat = new THREE.MeshStandardMaterial({ map: concreteTex, color: 0x5a6068, roughness: 0.5, metalness: 0.7 });
+    function addGate(z) {
+      const sideW = CORRIDOR_HALF - 4.2;
+      [-1, 1].forEach((side) => {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(sideW, 4.2, 0.6), hazardMat);
+        post.position.set(side * (4.2 + sideW / 2), 2.1, z);
+        post.castShadow = true;
+        post.receiveShadow = true;
+        scene.add(post);
+        // 열린 철문은 벽 쪽으로 밀려 있습니다
+        const door = new THREE.Mesh(new THREE.BoxGeometry(1.6, 4.0, 0.18), doorMat);
+        door.position.set(side * 4.9, 2.0, z - 0.45);
+        door.castShadow = true;
+        scene.add(door);
+      });
+      const lintel = new THREE.Mesh(new THREE.BoxGeometry(CORRIDOR_HALF * 2, 0.8, 0.6), hazardMat);
+      lintel.position.set(0, 5.0, z);
+      scene.add(lintel);
+      // 문 위 경고등
+      const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 12), new THREE.MeshBasicMaterial({ color: 0xff2020 }));
+      lamp.position.set(0, 4.45, z + 0.32);
+      scene.add(lamp);
+      gateLamps.push(lamp);
+    }
+    const gateLamps = [];
+    addGate(-12);
+    addGate(-37);
+    addGate(CORRIDOR_END + 0.3);
+
+    // 엄폐물 상자들
     const crateGeo = new THREE.BoxGeometry(1.4, 1.1, 1.2);
-    const crateMat = new THREE.MeshStandardMaterial({ color: 0x2d2318, roughness: 0.95 });
+    const crateMat = new THREE.MeshStandardMaterial({ map: concreteTex, color: 0x6b5233, roughness: 0.95 });
+    const crateRnd = seeded(5);
     [
-      [-2.8, 0.55, -8], [3.1, 0.55, -12], [-2.2, 0.55, -19],
-      [2.6, 0.55, -30], [-2.7, 0.55, -38], [2.9, 0.55, -55],
-      [-2.4, 0.55, -63]
+      [-3.6, 0.55, -8], [3.8, 0.55, -14], [-3.4, 0.55, -21],
+      [3.6, 0.55, -30], [-3.7, 0.55, -40], [3.9, 0.55, -55],
+      [-3.6, 0.55, -60]
     ].forEach(([x, y, z]) => {
       const crate = new THREE.Mesh(crateGeo, crateMat);
       crate.position.set(x, y, z);
-      crate.rotation.y = (Math.random() - 0.5) * 0.5;
+      crate.rotation.y = (crateRnd() - 0.5) * 0.5;
+      crate.castShadow = true;
+      crate.receiveShadow = true;
       scene.add(crate);
     });
 
-    // Sector 2: 유전자 배양 튜브 4개 (초록빛 발광 실린더)
-    const tubeGeo = new THREE.CylinderGeometry(0.7, 0.7, 3.2, 16);
+    // 바닥의 시체 자루와 피 웅덩이, 벽의 피 글씨
+    const bagMat = new THREE.MeshStandardMaterial({ color: 0x14161a, roughness: 0.35, metalness: 0.1 });
+    [[-4.6, -6, 0.3], [4.4, -26, -0.2], [-4.2, -47, 0.5]].forEach(([x, z, ry]) => {
+      const bag = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 12), bagMat);
+      bag.scale.set(0.7, 0.42, 2.0);
+      bag.position.set(x, 0.2, z);
+      bag.rotation.y = ry;
+      bag.castShadow = true;
+      bag.receiveShadow = true;
+      scene.add(bag);
+    });
+    const poolGeo = new THREE.PlaneGeometry(1, 1);
+    const poolMat = new THREE.MeshStandardMaterial({
+      map: bloodPoolTex,
+      transparent: true,
+      depthWrite: false,
+      roughness: 0.15,
+      metalness: 0.2,
+      polygonOffset: true,
+      polygonOffsetFactor: -2
+    });
+    const poolRnd = seeded(9);
+    for (let i = 0; i < 16; i++) {
+      const pool = new THREE.Mesh(poolGeo, poolMat);
+      pool.rotation.x = -Math.PI / 2;
+      pool.rotation.z = poolRnd() * Math.PI * 2;
+      const s = 1.2 + poolRnd() * 2.6;
+      pool.scale.set(s, s, 1);
+      pool.position.set((poolRnd() - 0.5) * 9, 0.01, 8 - poolRnd() * 70);
+      pool.receiveShadow = true;
+      scene.add(pool);
+    }
+    const writings = [];
+    [['도망쳐', -1, -7.85], ['HELP', 1, -7.85], ['물리면 끝', -1, -27], ['B.O.W.', 1, -44], ['살려줘', -1, -52]].forEach(([text, side, z]) => {
+      const tex = bloodWritingTex(text);
+      writings.push(tex);
+      const m = new THREE.Mesh(
+        new THREE.PlaneGeometry(3.0, 1.5),
+        new THREE.MeshStandardMaterial({ map: tex, transparent: true, depthWrite: false, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -2 })
+      );
+      m.position.set(side * (CORRIDOR_HALF - 0.02), 2.6, z);
+      m.rotation.y = side < 0 ? Math.PI / 2 : -Math.PI / 2;
+      scene.add(m);
+    });
+    // 웹폰트가 늦게 오면 피 글씨를 다시 그립니다.
+    if (document.fonts && document.fonts.load) {
+      document.fonts.load('40px "Black Han Sans"').then(() => writings.forEach((t) => t.redrawCanvas())).catch(() => {});
+    }
+
+    // 천장에서 늘어진 전선
+    const cableMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.6 });
+    [[-2.5, -4], [1.8, -16], [-1.2, -33], [2.6, -49], [-2.8, -58]].forEach(([x, z]) => {
+      const curve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(x, 5.4, z),
+        new THREE.Vector3(x + 0.3, 3.9, z + 0.4),
+        new THREE.Vector3(x + 0.9, 4.4, z + 1.2),
+        new THREE.Vector3(x + 1.4, 5.4, z + 1.5)
+      ]);
+      const cable = new THREE.Mesh(new THREE.TubeGeometry(curve, 20, 0.025, 6, false), cableMat);
+      cable.castShadow = true;
+      scene.add(cable);
+    });
+
+    // =========================================================================
+    // 깜빡이는 형광등: 등마다 따로 깜빡이고, 카메라 가까운 두 등만 실제 빛을 냅니다.
+    // =========================================================================
+    const lamps = [];
+    const lampGeo = new THREE.BoxGeometry(0.34, 0.09, 2.2);
+    const coneGeo = new THREE.ConeGeometry(2.3, 5.2, 24, 1, true);
+    const lampRnd = seeded(77);
+    for (let z = 6; z >= CORRIDOR_END + 4; z -= 7) {
+      const broken = lampRnd() < 0.35;
+      const mat = new THREE.MeshStandardMaterial({ color: 0x222222, emissive: 0xd8f2e4, emissiveIntensity: 1 });
+      const mesh = new THREE.Mesh(lampGeo, mat);
+      mesh.position.set(0, 5.32, z);
+      scene.add(mesh);
+      const coneMat = new THREE.MeshBasicMaterial({
+        color: 0xbfe6cf,
+        transparent: true,
+        opacity: 0.05,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      });
+      const cone = new THREE.Mesh(coneGeo, coneMat);
+      cone.position.set(0, 5.3 - 2.6, z);
+      scene.add(cone);
+      lamps.push({ z, mesh, cone, broken, level: 1, hold: lampRnd() * 2 });
+    }
+    const lampLights = [0, 1].map(() => {
+      const l = new THREE.PointLight(0xd8f2e4, 1.6, 15, 2);
+      scene.add(l);
+      return l;
+    });
+    let lightsOut = 0; // 0보다 크면 정전 중 (초)
+
+    function updateLamps(dt, now) {
+      lamps.forEach((L) => {
+        L.hold -= dt;
+        if (L.broken && L.hold <= 0) {
+          // 고장 난 등: 거의 꺼져 있다가 지직거리며 잠깐씩 켜집니다
+          const on = Math.random() < 0.35;
+          L.level = on ? 0.5 + Math.random() * 0.6 : Math.random() * 0.08;
+          L.hold = on ? 0.03 + Math.random() * 0.12 : 0.1 + Math.random() * 1.6;
+        } else if (!L.broken) {
+          L.level = 0.92 + Math.sin(now * 0.05 + L.z) * 0.03;
+          if (Math.random() < dt * 0.15) L.hold = 0.12;
+          if (L.hold > 0) L.level = Math.random() * 0.3;
+        }
+        const lv = lightsOut > 0 ? 0 : L.level;
+        L.mesh.material.emissiveIntensity = lv;
+        L.cone.material.opacity = 0.055 * lv;
+      });
+      // 카메라 앞 두 등 위치로 실제 빛을 옮깁니다
+      const camZ = camera.position.z;
+      [camZ - 5, camZ - 13].forEach((tz, i) => {
+        let best = lamps[0];
+        lamps.forEach((L) => { if (Math.abs(L.z - tz) < Math.abs(best.z - tz)) best = L; });
+        lampLights[i].position.set(0, 4.9, best.z);
+        lampLights[i].intensity = (lightsOut > 0 ? 0 : best.level) * 1.7;
+      });
+    }
+
+    // =========================================================================
+    // 공중에 떠다니는 먼지 (카메라를 따라다닙니다)
+    // =========================================================================
+    const DUST_COUNT = 700;
+    const dustPos = new Float32Array(DUST_COUNT * 3);
+    const dustSeed = new Float32Array(DUST_COUNT);
+    for (let i = 0; i < DUST_COUNT; i++) {
+      dustPos[i * 3] = (Math.random() - 0.5) * 11;
+      dustPos[i * 3 + 1] = Math.random() * 5;
+      dustPos[i * 3 + 2] = -Math.random() * 22;
+      dustSeed[i] = Math.random() * 100;
+    }
+    const dustGeo = new THREE.BufferGeometry();
+    dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+    const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({
+      color: 0xd8cbb4,
+      size: 0.035,
+      transparent: true,
+      opacity: 0.6,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    }));
+    scene.add(dust);
+    function updateDust(dt, now) {
+      const t = now * 0.001;
+      for (let i = 0; i < DUST_COUNT; i++) {
+        const s = dustSeed[i];
+        dustPos[i * 3] += Math.sin(t * 0.3 + s) * dt * 0.08;
+        dustPos[i * 3 + 1] += (Math.cos(t * 0.25 + s * 1.7) * 0.06 - 0.02) * dt;
+        if (dustPos[i * 3 + 1] < 0) dustPos[i * 3 + 1] = 5;
+      }
+      dustGeo.attributes.position.needsUpdate = true;
+      dust.position.set(camera.position.x, 0, camera.position.z);
+    }
+
+    // =========================================================================
+    // 옥상 비 (4섹터에서만 보입니다)
+    // =========================================================================
+    const RAIN_COUNT = 900;
+    const rainPos = new Float32Array(RAIN_COUNT * 6);
+    for (let i = 0; i < RAIN_COUNT; i++) {
+      const x = (Math.random() - 0.5) * 24;
+      const y = Math.random() * 12;
+      const z = -Math.random() * 26 + 3;
+      rainPos.set([x, y, z, x + 0.02, y + 0.45, z], i * 6);
+    }
+    const rainGeo = new THREE.BufferGeometry();
+    rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
+    const rain = new THREE.LineSegments(rainGeo, new THREE.LineBasicMaterial({ color: 0x9fb4c8, transparent: true, opacity: 0.35 }));
+    rain.visible = false;
+    scene.add(rain);
+    let lightningTimer = 4;
+    let lightningFlash = 0;
+    function updateRain(dt) {
+      const onRoof = camera.position.z < CORRIDOR_END + 2;
+      rain.visible = onRoof;
+      if (!onRoof) {
+        coldMoonLight.intensity = 0.35;
+        return;
+      }
+      for (let i = 0; i < RAIN_COUNT; i++) {
+        let y = rainPos[i * 6 + 1] - dt * 16;
+        if (y < 0) y += 12;
+        rainPos[i * 6 + 1] = y;
+        rainPos[i * 6 + 4] = y + 0.45;
+      }
+      rainGeo.attributes.position.needsUpdate = true;
+      rain.position.set(camera.position.x, 0, camera.position.z);
+      // 번개
+      lightningTimer -= dt;
+      if (lightningTimer <= 0) {
+        lightningTimer = 5 + Math.random() * 8;
+        lightningFlash = 0.35;
+        setTimeout(() => playSound('thunder'), 250 + Math.random() * 500);
+      }
+      lightningFlash = Math.max(0, lightningFlash - dt);
+      const strike = lightningFlash > 0 && (lightningFlash > 0.25 || lightningFlash < 0.12);
+      coldMoonLight.intensity = strike ? 4.5 : 0.35;
+    }
+
+    // Sector 2: 유전자 배양 튜브 4개 (초록빛 발광 실린더 안에 떠 있는 실험체)
+    const tubeGeo = new THREE.CylinderGeometry(0.7, 0.7, 3.2, 20, 1, true);
     const tubeMat = new THREE.MeshStandardMaterial({
       color: 0x22c55e,
       emissive: 0x15803d,
       emissiveIntensity: 0.65,
       transparent: true,
-      opacity: 0.85,
-      roughness: 0.2
+      opacity: 0.55,
+      roughness: 0.1,
+      side: THREE.DoubleSide,
+      depthWrite: false
     });
+    const capMat = new THREE.MeshStandardMaterial({ color: 0x2b3036, metalness: 0.85, roughness: 0.35 });
+    const specimenMat = new THREE.MeshStandardMaterial({ color: 0x0b1a10, roughness: 0.6 });
+    const specimens = [];
     [
       [-3.4, 1.6, -24], [3.4, 1.6, -24],
       [-3.4, 1.6, -34], [3.4, 1.6, -34]
     ].forEach(([x, y, z]) => {
+      const specimen = new THREE.Group();
+      const sBody = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.15, 1.1, 10), specimenMat);
+      const sHead = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 12), specimenMat);
+      sHead.position.y = 0.72;
+      specimen.add(sBody, sHead);
+      [-1, 1].forEach((s) => {
+        const limb = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.04, 0.9, 6), specimenMat);
+        limb.position.set(s * 0.26, 0.05, 0);
+        limb.rotation.z = s * 0.4;
+        specimen.add(limb);
+      });
+      specimen.position.set(x, y - 0.1, z);
+      scene.add(specimen);
+      specimens.push(specimen);
       const tube = new THREE.Mesh(tubeGeo, tubeMat);
       tube.position.set(x, y, z);
       scene.add(tube);
-      const tubeLight = new THREE.PointLight(0x22c55e, 1.4, 12);
-      tubeLight.position.set(x, y, z);
+      [y - 1.7, y + 1.7].forEach((cy) => {
+        const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.82, 0.82, 0.25, 20), capMat);
+        cap.position.set(x, cy, z);
+        cap.castShadow = true;
+        scene.add(cap);
+      });
+    });
+    [-3.4, 3.4].forEach((x) => {
+      const tubeLight = new THREE.PointLight(0x22c55e, 1.8, 14);
+      tubeLight.position.set(x, 1.6, -29);
       scene.add(tubeLight);
     });
 
@@ -1283,22 +2189,34 @@
     reactorLight.position.set(0, 3.8, -52);
     scene.add(reactorLight);
 
-    const pipeGeo = new THREE.CylinderGeometry(0.4, 0.4, 10, 12);
+    const pipeGeo = new THREE.CylinderGeometry(0.4, 0.4, CORRIDOR_HALF * 2, 12);
     const pipeMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.3 });
     [-48, -58].forEach((pz) => {
       const pipe = new THREE.Mesh(pipeGeo, pipeMat);
       pipe.rotation.z = Math.PI / 2;
-      pipe.position.set(0, 4.6, pz);
+      pipe.position.set(0, 4.7, pz);
+      pipe.castShadow = true;
       scene.add(pipe);
     });
 
-    // Sector 4: 헬리패드 착륙존 (시안빛 링 및 스포트라이트)
+    // Sector 4: 옥상 헬리패드 착륙존 (시안빛 링, 난간, 스포트라이트)
     const padGeo = new THREE.RingGeometry(3.5, 4.2, 32);
     const padMat = new THREE.MeshBasicMaterial({ color: 0x0284c7, side: THREE.DoubleSide });
     const padMesh = new THREE.Mesh(padGeo, padMat);
     padMesh.rotation.x = -Math.PI / 2;
     padMesh.position.set(0, 0.05, -74);
     scene.add(padMesh);
+    const railMat = new THREE.MeshStandardMaterial({ color: 0x3a3f45, metalness: 0.8, roughness: 0.4 });
+    [-1, 1].forEach((side) => {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 30), railMat);
+      rail.position.set(side * 8.5, 1.1, CORRIDOR_END - 15);
+      scene.add(rail);
+      for (let z = CORRIDOR_END - 1; z > CORRIDOR_END - 30; z -= 2.5) {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.07, 1.1, 0.07), railMat);
+        post.position.set(side * 8.5, 0.55, z);
+        scene.add(post);
+      }
+    });
 
     const heliPadLight = new THREE.SpotLight(0x38bdf8, 2.8, 30, Math.PI / 4, 0.3);
     heliPadLight.position.set(0, 9, -74);
@@ -1307,10 +2225,11 @@
     scene.add(heliPadLight.target);
 
     // =========================================================================
-    // 우측 하단 1인칭 3D 권총 모델 + 레드 레이저 사이트
+    // 우측 하단 1인칭 3D 권총 모델 + 전술 손전등 빛줄기 + 레드 레이저 사이트
+    // 총구는 -Z 방향입니다. (lookAt 뒤에 뒤로 돌려서 겨누는 쪽을 보게 합니다)
     // =========================================================================
     const gunGroup = new THREE.Group();
-    const gunSlideMat = new THREE.MeshStandardMaterial({ color: 0x1e242b, metalness: 0.75, roughness: 0.3 });
+    const gunSlideMat = new THREE.MeshStandardMaterial({ color: 0x2a2f36, metalness: 0.35, roughness: 0.45 });
     const gunGripMat = new THREE.MeshStandardMaterial({ color: 0x2c1810, roughness: 0.8 });
 
     const gunSlide = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.14, 0.58), gunSlideMat);
@@ -1319,11 +2238,62 @@
 
     const gunGrip = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.28, 0.16), gunGripMat);
     gunGrip.position.set(0, -0.1, 0.1);
-    gunGrip.rotation.x = 0.25;
+    gunGrip.rotation.x = -0.25;
     gunGroup.add(gunGrip);
 
+    const gunBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.12, 12), gunSlideMat);
+    gunBarrel.rotation.x = Math.PI / 2;
+    gunBarrel.position.set(0, 0.07, -0.43);
+    gunGroup.add(gunBarrel);
+    const gunSight = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.03, 0.03), gunSlideMat);
+    gunSight.position.set(0, 0.145, -0.35);
+    gunGroup.add(gunSight);
+    // 총 아래 전술 손전등
+    const tacLight = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.16, 12), gunSlideMat);
+    tacLight.rotation.x = Math.PI / 2;
+    tacLight.position.set(0, -0.04, -0.3);
+    gunGroup.add(tacLight);
+    const tacLens = new THREE.Mesh(new THREE.CircleGeometry(0.03, 16), new THREE.MeshBasicMaterial({ color: 0xfff6e0 }));
+    tacLens.position.set(0, -0.04, -0.381);
+    tacLens.rotation.y = Math.PI;
+    gunGroup.add(tacLens);
+
+    // 손전등 빛줄기: 먼지 낀 공기에 빛이 보이는 느낌
+    const beamLen = 13;
+    const beam = new THREE.Mesh(
+      new THREE.ConeGeometry(1.7, beamLen, 28, 1, true),
+      new THREE.MeshBasicMaterial({
+        color: 0xfff1d0,
+        transparent: true,
+        opacity: 0.045,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      })
+    );
+    beam.rotation.x = Math.PI / 2; // 꼭짓점이 +Z(총 쪽), 넓은 쪽이 -Z(겨누는 쪽)
+    beam.position.set(0, -0.04, -0.38 - beamLen / 2);
+    gunGroup.add(beam);
+
+    // 총구 화염
+    const flashTex = canvasTexture(128, (g, S) => {
+      const grad = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+      grad.addColorStop(0, 'rgba(255,255,230,1)');
+      grad.addColorStop(0.25, 'rgba(255,190,60,0.9)');
+      grad.addColorStop(1, 'rgba(255,90,0,0)');
+      g.fillStyle = grad;
+      g.fillRect(0, 0, S, S);
+    });
+    const muzzleFlash = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.42, 0.42),
+      new THREE.MeshBasicMaterial({ map: flashTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })
+    );
+    muzzleFlash.position.set(0, 0.07, -0.55);
+    muzzleFlash.visible = false;
+    gunGroup.add(muzzleFlash);
+
     // 레드 레이저 빔
-    const laserMat = new THREE.LineBasicMaterial({ color: 0xff1744, transparent: true, opacity: 0.75 });
+    const laserMat = new THREE.LineBasicMaterial({ color: 0xff1744, transparent: true, opacity: 0.55 });
     const laserGeo = new THREE.BufferGeometry().setFromPoints([
       new THREE.Vector3(0, 0.05, -0.4),
       new THREE.Vector3(0, 0.05, -28)
@@ -1332,6 +2302,7 @@
     gunGroup.add(laserLine);
 
     gunGroup.position.set(0.45, 1.22, 3.65);
+    gunGroup.scale.setScalar(0.8);
     scene.add(gunGroup);
 
     let gunRecoilOffset = 0;
@@ -1351,7 +2322,7 @@
     // 좀비와 독액은 만들 때마다 지오메트리·재질을 새로 만들기 때문에, 없앨 때 GPU 메모리도 같이 비웁니다.
     function disposeObject(root) {
       root.traverse((o) => {
-        if (o.geometry) o.geometry.dispose();
+        if (o.geometry && !o.userData.sharedGeo) o.geometry.dispose();
         if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose());
       });
     }
@@ -1361,7 +2332,7 @@
     }
     // 피 파티클은 아주 많이 생기니 하나의 지오메트리·재질을 같이 씁니다.
     const BLOOD_GEO = new THREE.BoxGeometry(0.07, 0.07, 0.07);
-    const BLOOD_MAT = new THREE.MeshBasicMaterial({ color: 0xb91c1c });
+    const BLOOD_MAT = new THREE.MeshBasicMaterial({ color: 0x8f0a10 });
 
     // 산성 침 투사체 스폰 (스피터가 플레이어를 향해 발사)
     function spawnAcidSpit(startPos) {
@@ -1390,7 +2361,21 @@
       showBanner('독액이 날아와요. 쏴서 막으세요', 'var(--acid)');
     }
 
-    function createZombie(type = 'walker') {
+    // 어둠 속에서 번들거리는 눈빛 (모든 좀비가 같이 씁니다)
+    const EYE_GLOW_GEO = new THREE.SphereGeometry(0.11, 10, 10);
+    function addEyeGlow(headGroup, eyeColor) {
+      const glowMat = new THREE.MeshBasicMaterial({ color: eyeColor, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+      headGroup.children.forEach((c) => {
+        if (c.material && c.material.fog === false && c.geometry.type === 'SphereGeometry') {
+          const glow = new THREE.Mesh(EYE_GLOW_GEO, glowMat);
+          glow.position.copy(c.position);
+          glow.userData.sharedGeo = true;
+          headGroup.add(glow);
+        }
+      });
+    }
+
+    function createZombie(type = 'walker', opts = {}) {
       const group = new THREE.Group();
       const isRunner = type === 'runner';
       const isBrute = type === 'brute';
@@ -1403,8 +2388,8 @@
 
       // 피부/의상 테마 (부패/오염된 질감 색상)
       const skinColor = isBloater ? 0x5a4a35 : isCrawler ? 0x881337 : isSpitter ? 0x166534 : isRunner ? 0x7f1d1d : isBrute ? 0x334155 : 0x475569;
-      const skinMat = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.75, metalness: 0.1 });
-      const clothesMat = new THREE.MeshStandardMaterial({ color: isBloater ? 0x292524 : 0x0f172a, roughness: 0.9 });
+      const skinMat = new THREE.MeshStandardMaterial({ color: skinColor, map: skinTex, bumpMap: skinTex, bumpScale: 0.02, roughness: 0.6, metalness: 0.05 });
+      const clothesMat = new THREE.MeshStandardMaterial({ color: isBloater ? 0x3a3330 : 0x2a3140, map: clothTex, roughness: 0.92 });
       const mouthMat = new THREE.MeshBasicMaterial({ color: 0x450a0a });
 
       let torso, headGroup, headMesh;
@@ -1433,7 +2418,7 @@
         cJaw.position.set(0, -0.1, 0.15);
         headGroup.add(cJaw);
 
-        const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0055 });
+        const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff2a55, fog: false });
         [-0.1, 0.1].forEach((ex) => {
           const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), eyeMat);
           eye.position.set(ex, 0.05, 0.25);
@@ -1518,7 +2503,7 @@
         bJaw.userData = { isZombiePart: true, isHead: true, zombieRoot: group };
         headGroup.add(bJaw);
 
-        const eyeMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+        const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff3b3b, fog: false });
         [-0.11, 0.11].forEach((ex) => {
           const eye = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), eyeMat);
           eye.position.set(ex, 0.05, 0.28);
@@ -1596,7 +2581,7 @@
         insideMouth.position.set(0, -0.12, 0.1);
         headGroup.add(insideMouth);
 
-        const eyeMat = new THREE.MeshBasicMaterial({ color: isSpitter ? 0x22c55e : 0xff1744 });
+        const eyeMat = new THREE.MeshBasicMaterial({ color: isSpitter ? 0x4dff8a : 0xff1f3d, fog: false });
         [-0.09, 0.09].forEach((ex) => {
           const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), eyeMat);
           eye.position.set(ex, 0.05, 0.24);
@@ -1678,13 +2663,44 @@
       };
 
       group.userData.zombie = zombieData;
+      addEyeGlow(headGroup, isSpitter ? 0x4dff8a : 0xff1f3d);
+      group.traverse((o) => { if (o.isMesh && !o.material.transparent) o.castShadow = true; });
       scene.add(group);
+      // 로비 배경에 서 있는 좀비는 맞힐 수 없고, 게임 좀비 목록에도 넣지 않습니다.
+      if (opts.decor) return zombieData;
       zombies.push(zombieData);
 
       if (isBloater) {
         playSound('bloater_roar');
         showBanner('블로터 출현! 화력을 모으세요', 'var(--warn)', 1500);
       }
+      return zombieData;
+    }
+
+    // 쓰러진 좀비 아래에 피 웅덩이가 번집니다. 오래된 것부터 지웁니다.
+    const floorBlood = [];
+    function spawnFloorBlood(x, z, size = 1.6) {
+      const mat = poolMat.clone();
+      const m = new THREE.Mesh(poolGeo, mat);
+      m.rotation.x = -Math.PI / 2;
+      m.rotation.z = Math.random() * Math.PI * 2;
+      m.position.set(x, 0.015, z);
+      m.scale.set(0.2, 0.2, 1);
+      m.userData = { grow: size, age: 0 };
+      scene.add(m);
+      floorBlood.push(m);
+      if (floorBlood.length > 24) clearFloorBlood(1);
+    }
+    function clearFloorBlood(n = floorBlood.length) {
+      floorBlood.splice(0, n).forEach((m) => { scene.remove(m); m.material.dispose(); });
+    }
+    function updateFloorBlood(dt) {
+      floorBlood.forEach((m) => {
+        m.userData.age += dt;
+        const k = Math.min(1, m.userData.age / 1.6);
+        const s = 0.2 + (m.userData.grow - 0.2) * (1 - Math.pow(1 - k, 3));
+        m.scale.set(s, s, 1);
+      });
     }
 
     function spawnBloodBurst(pos, count = 18) {
@@ -1726,7 +2742,11 @@
       renderTeam();
       playSound('hurt');
       damageVignette.style.opacity = '1';
-      setTimeout(() => { damageVignette.style.opacity = '0'; }, 300);
+      setTimeout(() => { damageVignette.style.opacity = '0'; }, 450);
+      canvas.classList.remove('shake');
+      void canvas.offsetWidth;
+      canvas.classList.add('shake');
+      camShake = Math.min(0.5, camShake + dmg / 60);
       if (label) showBanner(label, 'var(--danger)');
       if (teamHp <= 0) {
         teamDown = true;
@@ -1802,7 +2822,9 @@
 
     function muzzle(p) {
       muzzleLight.intensity = 4.5;
-      setTimeout(() => { muzzleLight.intensity = 0; }, 55);
+      muzzleFlash.visible = true;
+      muzzleFlash.rotation.z = Math.random() * Math.PI;
+      setTimeout(() => { muzzleLight.intensity = 0; muzzleFlash.visible = false; }, 55);
       gunOwner = p.slot;
       gunRecoilOffset = WEAPONS[p.weapon].recoil;
     }
@@ -1867,6 +2889,7 @@
         }
         if (zombie.hp <= 0) {
           zombie.dead = true;
+          spawnFloorBlood(zRoot.position.x, zRoot.position.z + 0.6, 1.2 + zRoot.scale.x * 0.8);
           if (isHead) zombie.headGroup.visible = false;
           p.combo += 1;
           p.score += (isHead ? 250 : 100) * p.combo;
@@ -1953,6 +2976,7 @@
       }
       ensureAudio();
       clearEnemies();
+      clearFloorBlood();
       teamHp = 100;
       teamDown = false;
       currentSectorIdx = 0;
@@ -1976,6 +3000,7 @@
 
     function endGame() {
       clearEnemies();
+      clearFloorBlood();
       isTransitioningSector = false;
       document.body.classList.remove('cinema-active', 'show-join');
       cctvHud.style.display = 'none';
@@ -2044,7 +3069,13 @@
           Object.assign(p, freshPlayer(s), { present: true, connected: info.connected, centering: true, session: info.session });
           sendAmmo(p);
           toSlot(s, 'game_state', { phase });
-          if (phase === 'playing') showBanner(`${s}P 참가`, p.color);
+          if (phase === 'playing') {
+            showBanner(`${s}P 합류! 가운데 표적을 맞추면 바로 싸워요`, p.color, 2200);
+            const mini = $('miniJoin');
+            mini.classList.remove('pulse');
+            void mini.offsetWidth;
+            mini.classList.add('pulse');
+          }
         } else if (info) {
           p.connected = info.connected;
           if (info.connected && syncSession(p, info.session)) {
@@ -2227,6 +3258,72 @@
     // 메인 루프
     // =========================================================================
     let lastTime = performance.now();
+    let camShake = 0;
+
+    // 좀비 머리가 갑자기 꺾이듯 움찔거립니다.
+    function twitchHead(z, dt) {
+      z.twitchT = (z.twitchT === undefined ? Math.random() * 2 : z.twitchT) - dt;
+      if (z.twitchT <= 0) {
+        z.twitchT = 0.3 + Math.random() * 2.4;
+        z.twitchZ = (Math.random() - 0.5) * 1.1;
+        z.twitchX = (Math.random() - 0.5) * 0.5;
+      }
+      z.twitchZ = (z.twitchZ || 0) * Math.exp(-dt * 2.5);
+      z.twitchX = (z.twitchX || 0) * Math.exp(-dt * 2.5);
+      const k = Math.min(1, dt * 30);
+      z.headGroup.rotation.z += (z.twitchZ - z.headGroup.rotation.z) * k;
+      z.headGroup.rotation.x += (z.twitchX - z.headGroup.rotation.x) * k;
+    }
+
+    // 로비 배경: 안개 속에 서서 이쪽을 보는 좀비들 (맞힐 수 없음)
+    const decor = [];
+    [['walker', -1.7, -15], ['brute', 2.0, -21], ['walker', 0.4, -26], ['spitter', -2.6, -23]].forEach(([type, x, z], i) => {
+      const d = createZombie(type, { decor: true });
+      d.group.position.set(x, 0, z);
+      d.group.rotation.y = [0.25, -0.3, 0.05, 0.4][i];
+      decor.push(d);
+    });
+    function updateDecor(dt) {
+      const show = phase !== 'playing';
+      decor.forEach((d, i) => {
+        d.group.visible = show;
+        if (!show) return;
+        d.walkPhase += dt * 1.2;
+        d.group.rotation.z = Math.sin(d.walkPhase + i) * 0.06;
+        d.leftArm.rotation.x = -Math.PI / 2.6 + Math.sin(d.walkPhase * 0.7 + i) * 0.08;
+        d.rightArm.rotation.x = -Math.PI / 2.4 + Math.cos(d.walkPhase * 0.6 + i) * 0.08;
+        twitchHead(d, dt);
+      });
+    }
+
+    // 게임 중 가끔 불이 나갑니다. 체력이 낮으면 심장 소리가 들립니다.
+    let scareTimer = 14;
+    let heartbeatTimer = 0;
+    const blackoutEl = $('blackout');
+    function updateScares(dt) {
+      if (lightsOut > 0) {
+        lightsOut -= dt;
+        emergencyLight.intensity *= 0.25;
+        flashlight.intensity = Math.random() < 0.3 ? 0.6 : 3.2;
+      } else {
+        flashlight.intensity = 3.2;
+      }
+      blackoutEl.style.opacity = lightsOut > 0 ? '0.45' : '0';
+      if (phase !== 'playing' || isTransitioningSector) return;
+      scareTimer -= dt;
+      if (scareTimer <= 0) {
+        scareTimer = 16 + Math.random() * 18;
+        lightsOut = 0.25 + Math.random() * 0.5;
+        playSound('buzz');
+      }
+      if (teamHp <= 35 && !teamDown) {
+        heartbeatTimer -= dt;
+        if (heartbeatTimer <= 0) {
+          heartbeatTimer = 0.9;
+          playSound('heartbeat');
+        }
+      }
+    }
 
     function updateCrosshairs(dt) {
       const k = 1 - Math.exp(-dt * 30);
@@ -2304,6 +3401,28 @@
 
       if (phase === 'playing') updateSector(dt, now);
 
+      // 숨 쉬듯 살짝 흔들리는 시점 + 맞았을 때 흔들림
+      camShake = Math.max(0, camShake - dt * 1.6);
+      if (!isTransitioningSector) {
+        const t = now * 0.001;
+        const baseZ = SECTORS[currentSectorIdx].cameraZ;
+        const sx = (Math.random() - 0.5) * camShake;
+        const sy = (Math.random() - 0.5) * camShake;
+        camera.position.set(Math.sin(t * 0.55) * 0.05 + sx, 1.65 + Math.sin(t * 1.3) * 0.025 + sy, baseZ);
+        camera.lookAt(Math.sin(t * 0.31) * 0.18 + sx * 0.5, 1.62 + Math.sin(t * 0.9) * 0.03, baseZ - 12);
+      }
+      updateLamps(dt, now);
+      updateDust(dt, now);
+      updateRain(dt);
+      updateFloorBlood(dt);
+      updateScares(dt);
+      updateDecor(dt);
+      gateLamps.forEach((l, i) => l.material.color.setHex(Math.sin(now * 0.006 + i) > 0 ? 0xff2020 : 0x2a0000));
+      specimens.forEach((sp, i) => {
+        sp.position.y = 1.5 + Math.sin(now * 0.0012 + i * 1.7) * 0.08;
+        sp.rotation.y += dt * 0.1;
+      });
+
       // 3D 총과 손전등은 마지막으로 쏜 플레이어의 조준을 따라갑니다.
       let owner = PLAYERS[gunOwner];
       if (!owner || !owner.present) owner = PLAYERS[SLOTS.find((s) => PLAYERS[s].present) || 1];
@@ -2315,9 +3434,10 @@
       gunReloadTilt = Math.max(0, gunReloadTilt - dt * 3.2);
       gunGroup.position.set(camera.position.x + 0.45, camera.position.y - 0.43, camera.position.z - 0.85 + gunRecoilOffset * 0.35);
       gunGroup.lookAt(targetWorldX, targetWorldY, targetWorldZ);
-      gunGroup.rotateZ(THREE.MathUtils.degToRad(-owner.roll * 0.4));
+      gunGroup.rotateY(Math.PI); // 총구(-Z)가 겨누는 쪽을 보게 돌립니다
+      gunGroup.rotateZ(THREE.MathUtils.degToRad(owner.roll * 0.4));
       gunGroup.rotateX(gunRecoilOffset + gunReloadTilt);
-      flashlight.position.set(camera.position.x + 0.3, camera.position.y - 0.25, camera.position.z - 0.3);
+      flashlight.position.set(camera.position.x + 0.42, camera.position.y - 0.42, camera.position.z - 1.3);
       muzzleLight.position.set(camera.position.x + 0.35, camera.position.y - 0.3, camera.position.z - 0.9);
 
       // 피 파티클
@@ -2402,6 +3522,9 @@
         } else {
           z.torso.rotation.x = 0;
         }
+        twitchHead(z, dt);
+        // 살아 있는 좀비가 가끔 그르렁거립니다
+        if (Math.random() < dt * 0.06) playSound('zombie_groan');
 
         // --- 몬스터 종류별 고유 AI 및 이동 애니메이션 ---
         if (z.type === 'crawler') {
