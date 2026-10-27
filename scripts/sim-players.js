@@ -723,9 +723,112 @@ async function browserTests() {
     check((await page2.evaluate(() => window.__game.PLAYERS[4].present)), '두 번째 화면이 지금 플레이어들을 그대로 이어받음');
     await page.bringToFront();
     await shot(page, 'display-5-replaced');
+
+    await midJoinTests(browser, shot);
   } finally {
     sockets.forEach((s) => s.close());
     await browser.close();
+    child.kill();
+  }
+}
+
+// 1P 혼자 시작한 뒤, 게임 도중에 2P·3P·4P가 QR로 들어오는 경우
+async function midJoinTests(browser, shot) {
+  console.log('\n[화면] 게임 중간에 2P·3P·4P가 들어와도 바로 함께 싸우는지');
+  const { child, url } = await startServer(BROWSER_RESERVE_MS);
+  const sockets = [];
+  const page = await browser.newPage();
+  page.on('pageerror', (err) => { failures++; console.log(`  FAIL 화면 JS 오류: ${err.message}`); });
+  try {
+    await page.setViewport({ width: 1920, height: 1080 });
+    await page.goto(url, { waitUntil: 'networkidle0' });
+    await page.waitForFunction(() => window.__game && document.querySelector('.qrImage').src.startsWith('data:'));
+    const G = (fn, ...a) => page.evaluate(fn, ...a);
+    const miniState = () => G(() => {
+      const el = document.getElementById('miniJoin');
+      const img = el.querySelector('.qrImage');
+      return {
+        shown: getComputedStyle(el).display !== 'none',
+        next: document.getElementById('miniNext').textContent,
+        left: el.querySelector('.slotsLeft').textContent,
+        qr: img.src.startsWith('data:') && img.getBoundingClientRect().width >= 100
+      };
+    });
+
+    const join = async (n) => {
+      const sock = await controller(url, `M${n}`, `mid-player-${n}`);
+      sockets.push(sock);
+      const a = await waitFor(sock, 'player_assigned');
+      const ph = new SimPhone(sock);
+      ph.sendSettings();
+      return { ph, slot: a.slot };
+    };
+
+    const p1 = await join(1);
+    p1.ph.center();
+    await page.waitForFunction(() => window.__game.PLAYERS[1].calibrated, { timeout: 3000 }).catch(() => {});
+    check(!(await miniState()).shown, '로비에서는 작은 참가 QR이 안 보임 (오른쪽 큰 QR만 보임)');
+    p1.ph.s.emit('start_game', {});
+    await page.waitForFunction(() => window.__game.phase === 'playing', { timeout: 3000 }).catch(() => {});
+    check((await G(() => window.__game.phase)) === 'playing', '1P 혼자서도 게임을 시작할 수 있음');
+
+    let mini = await miniState();
+    check(mini.shown && mini.qr && mini.next === '2P' && mini.left === '3', `게임 중 화면에 참가 QR이 늘 보이고 "2P로 참가", 남은 자리 3 (${JSON.stringify(mini)})`);
+
+    // 게임 도중 2P 참가
+    const p2 = await join(2);
+    check(p2.slot === 2, '게임 중에 들어온 폰이 2P 자리를 받음', p2.slot);
+    const gs2 = await waitFor(p2.ph.s, 'game_state', 2000, (d) => d.phase === 'playing').catch(() => null);
+    check(!!gs2, '2P 폰은 들어오자마자 "전투 중" 상태를 받음');
+    await page.waitForFunction(() => window.__game.PLAYERS[2].present, { timeout: 3000 }).catch(() => {});
+    const card2 = await G(() => document.querySelectorAll('.pcard')[1].className);
+    check(!/empty/.test(card2), '화면 아래 2P 카드가 빈자리에서 참가로 바뀜', card2);
+    mini = await miniState();
+    check(mini.next === '3P' && mini.left === '2', `참가 QR이 다음 사람을 "3P"로 안내함 (${mini.next}, 남은 자리 ${mini.left})`);
+
+    // 2P가 가운데를 맞추고 쏘면 실제 전투 사격(탄이 줄어듦)이 됨. 1P 탄은 그대로.
+    p2.ph.center();
+    await page.waitForFunction(() => window.__game.PLAYERS[2].calibrated, { timeout: 3000 }).catch(() => {});
+    await streamAims([p1.ph, p2.ph], 600, (i, t) => (i === 0 ? [-10, 3] : [9 + Math.sin(t * 4), 2]));
+    p2.ph.s.emit('shoot', {});
+    p2.ph.s.emit('shoot', {});
+    await sleep(300);
+    const ammo = await G(() => [1, 2].map((s) => window.__game.PLAYERS[s].ammo));
+    check(ammo[0] === 12 && ammo[1] === 10, `중간에 들어온 2P가 쏘면 2P 탄만 줄어듦 (1P ${ammo[0]}, 2P ${ammo[1]})`);
+    check(p2.ph.lastAmmo() === 10, '2P 폰도 남은 탄 10발을 받음', p2.ph.lastAmmo());
+
+    // 좀비가 나올 때까지 기다렸다가 스크린샷 (2명 + 오른쪽 참가 QR)
+    const t0 = Date.now();
+    while (Date.now() - t0 < 6000) {
+      const t = (Date.now() - t0) / 1000;
+      p1.ph.aim(Math.sin(t * 0.9) * 12, Math.cos(t * 0.7) * 5 - 2);
+      p2.ph.aim(Math.sin(t * 0.8 + 2) * 12, Math.cos(t * 0.6 + 1) * 5 - 1);
+      await sleep(16);
+    }
+    await shot(page, 'display-6-midjoin-2p');
+    await page.setViewport({ width: 1280, height: 720 });
+    await sleep(400);
+    await shot(page, 'display-6-midjoin-2p-1280');
+    await page.setViewport({ width: 1920, height: 1080 });
+
+    // 3P, 4P도 게임 도중 참가
+    const p3 = await join(3);
+    const p4 = await join(4);
+    check(p3.slot === 3 && p4.slot === 4, '게임 중에 3P, 4P도 차례로 자리를 받음', [p3.slot, p4.slot]);
+    await page.waitForFunction(() => [1, 2, 3, 4].every((s) => window.__game.PLAYERS[s].present), { timeout: 3000 }).catch(() => {});
+    p3.ph.center();
+    p4.ph.center();
+    await sleep(300);
+    p4.ph.s.emit('shoot', {});
+    await sleep(300);
+    const a4 = await G(() => window.__game.PLAYERS[4].ammo);
+    check(a4 === 11, `중간에 들어온 4P도 바로 쏠 수 있음 (탄 ${a4})`);
+    mini = await miniState();
+    check(!mini.shown, '4명이 꽉 차면 게임 중 참가 QR이 사라짐');
+    check((await G(() => window.__game.phase)) === 'playing', '여러 명이 중간에 들어와도 게임은 계속 진행됨');
+  } finally {
+    sockets.forEach((s) => s.close());
+    await page.close();
     child.kill();
   }
 }
